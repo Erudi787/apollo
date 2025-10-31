@@ -8,6 +8,8 @@ import secrets
 from dotenv import load_dotenv
 
 load_dotenv()
+
+# Debug
 print(f"Client: {os.getenv('SPOTIFY_CLIENT_ID')}")
 print(f"Redirect URI: {os.getenv('REDIRECT_URI')}")
 
