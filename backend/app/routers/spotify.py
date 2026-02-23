@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import httpx
+import random
 from dotenv import load_dotenv
-from app.config.mood_profiles import MOOD_PROFILES, MOOD_KEYWORDS
+from app.config.mood_profiles import MOOD_PROFILES, MOOD_KEYWORDS, MOOD_ASSOCIATIONS
 
 load_dotenv()
 
@@ -47,6 +48,20 @@ async def _fetch_artist_genres(access_token: str, artist_ids: list[str], max_art
     return genres
 
 
+async def _fetch_followed_artists(access_token: str, limit: int = 20) -> list[dict]:
+    """Fetch artists the user follows."""
+    url = "https://api.spotify.com/v1/me/following"
+    params = {"type": "artist", "limit": limit}
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=_auth_header(access_token), params=params)
+            resp.raise_for_status()
+            return resp.json().get("artists", {}).get("items", [])
+    except Exception as e:
+        print(f"[Apollo] Failed to fetch followed artists: {e}")
+        return []
+
+
 async def _search_tracks_by_mood(access_token: str, mood_profile: dict, limit: int = 20) -> list[dict]:
     """Search Spotify for tracks matching a mood profile's genres."""
     search_genres = mood_profile["genres"][:2]
@@ -61,24 +76,237 @@ async def _search_tracks_by_mood(access_token: str, mood_profile: dict, limit: i
 
 
 def _analyze_text_mood(text: str) -> tuple[str | None, float, dict[str, int]]:
-    """Analyze text and return (detected_mood, confidence, scores)."""
+    """Analyze text and return (detected_mood, confidence, scores).
+    
+    Uses a two-tier approach:
+    1. Primary: Score against MOOD_KEYWORDS (comprehensive keyword lists)
+    2. Fallback: Check MOOD_ASSOCIATIONS for slang/contextual/unconventional terms
+    """
+    text_lower = text.lower()
     mood_scores = {mood: 0 for mood in MOOD_KEYWORDS}
 
+    # Tier 1: Primary keyword matching
     for mood, keywords in MOOD_KEYWORDS.items():
         for keyword in keywords:
-            if keyword in text:
+            if keyword in text_lower:
                 word_count = len(keyword.split())
                 mood_scores[mood] += word_count
 
     detected_mood = max(mood_scores, key=mood_scores.get)
     max_score = mood_scores[detected_mood]
 
-    if max_score == 0:
-        return None, 0, mood_scores
+    if max_score > 0:
+        total_matches = sum(mood_scores.values())
+        confidence = max_score / total_matches
+        return detected_mood, confidence, mood_scores
 
-    total_matches = sum(mood_scores.values())
-    confidence = max_score / total_matches
-    return detected_mood, confidence, mood_scores
+    # Tier 2: Fallback — check MOOD_ASSOCIATIONS for slang/unconventional terms
+    # Check longest phrases first to match multi-word expressions
+    sorted_associations = sorted(MOOD_ASSOCIATIONS.keys(), key=len, reverse=True)
+    association_scores: dict[str, int] = {}
+    
+    for phrase in sorted_associations:
+        if phrase in text_lower:
+            mapped_mood = MOOD_ASSOCIATIONS[phrase]
+            association_scores[mapped_mood] = association_scores.get(mapped_mood, 0) + 1
+
+    if association_scores:
+        best_mood = max(association_scores, key=association_scores.get)
+        total = sum(association_scores.values())
+        confidence = association_scores[best_mood] / total
+        # Populate mood_scores for the response
+        mood_scores[best_mood] = association_scores[best_mood]
+        print(f"[Apollo] Mood detected via associations: '{best_mood}' from text '{text}' (confidence: {confidence:.2f})")
+        return best_mood, confidence, mood_scores
+
+    # No match at all
+    print(f"[Apollo] Could not detect mood from text: '{text}'")
+    return None, 0, mood_scores
+
+
+# Blocklist tokens for filtering out cover/karaoke/tribute junk from search results
+_JUNK_TOKENS = [
+    "cover", "karaoke", "tribute", "instrumental", "backing track",
+    "in the style of", "originally performed", "made famous",
+    "piano version", "music box", "lullaby version", "8-bit",
+    "8 bit", "ringtone", "midi", "acapella version",
+]
+
+def _is_junk_track(track: dict) -> bool:
+    """Return True if a track looks like a cover, karaoke, or tribute version."""
+    name = (track.get("name") or "").lower()
+    # Check track name for junk tokens
+    for token in _JUNK_TOKENS:
+        if token in name:
+            return True
+    # Check artist names for junk tokens
+    for artist in track.get("artists", []):
+        artist_name = (artist.get("name") or "").lower()
+        for token in _JUNK_TOKENS:
+            if token in artist_name:
+                return True
+    # Filter out very low-popularity tracks (often bootleg/cover accounts)
+    if track.get("popularity", 50) < 5:
+        return True
+    return False
+
+
+async def _get_personalized_recommendations(
+    access_token: str, mood_profile: dict, limit: int = 20
+) -> list[dict]:
+    """Get mood-matched, personalized tracks using Spotify Search API.
+    
+    Strategy (since /recommendations is deprecated for basic-tier apps):
+    1. Fetch user's top artists for personalization
+    2. Search for each artist's tracks using mood-related keywords to filter
+    3. Combine results for variety and deduplicate
+    
+    This naturally produces personalized + mood-accurate results because the 
+    search query constrains both artist (taste) and mood (keywords/genre).
+    """
+    headers = _auth_header(access_token)
+    search_url = "https://api.spotify.com/v1/search"
+
+    # Step 1: Fetch user's top artists
+    top_artist_names = []
+    try:
+        top_tracks = await _fetch_top_tracks(access_token, time_range="short_term", limit=20)
+        if not top_tracks:
+            top_tracks = await _fetch_top_tracks(access_token, time_range="medium_term", limit=20)
+    except Exception as e:
+        print(f"[Apollo] Failed to fetch top tracks: {e}")
+        top_tracks = []
+
+    # Extract unique artist names from top tracks
+    if top_tracks:
+        seen = set()
+        for track in top_tracks:
+            for artist in track.get("artists", []):
+                name = artist.get("name")
+                if name and name not in seen:
+                    top_artist_names.append(name)
+                    seen.add(name)
+                    if len(top_artist_names) >= 8:
+                        break
+            if len(top_artist_names) >= 8:
+                break
+
+    # Also fetch followed artists for broader personalization
+    try:
+        followed = await _fetch_followed_artists(access_token, limit=20)
+        seen_names = set(top_artist_names)
+        for artist in followed:
+            name = artist.get("name")
+            if name and name not in seen_names:
+                top_artist_names.append(name)
+                seen_names.add(name)
+                if len(top_artist_names) >= 12:
+                    break
+    except Exception as e:
+        print(f"[Apollo] Could not merge followed artists: {e}")
+
+    # Step 2: Build mood search keywords from the profile
+    mood_genres = mood_profile.get("genres", [])
+    mood_descriptors = mood_profile.get("search_descriptors", [])
+    mood_desc = mood_profile.get("description", "")
+    # Use descriptors first, then fall back to genres/description
+    mood_keyword = mood_descriptors[0] if mood_descriptors else (
+        mood_genres[0] if mood_genres else mood_desc.split(",")[0].strip()
+    )
+
+    print(f"[Apollo] User top artists: {top_artist_names}")
+    print(f"[Apollo] Mood keyword: {mood_keyword}, descriptors: {mood_descriptors}, genres: {mood_genres[:3]}")
+
+    all_tracks: list[dict] = []
+    seen_ids: set[str] = set()
+    # Dedup key: normalized (track_name, primary_artist) -> index in all_tracks
+    dedup_map: dict[tuple[str, str], int] = {}
+
+    def _add_track(t: dict) -> None:
+        """Add a track with deduplication by name + primary artist."""
+        tid = t.get("id")
+        if not tid or tid in seen_ids or _is_junk_track(t):
+            return
+        
+        # Build dedup key
+        track_name = (t.get("name") or "").lower().strip()
+        primary_artist = ""
+        artists = t.get("artists", [])
+        if artists:
+            primary_artist = (artists[0].get("name") or "").lower().strip()
+        dedup_key = (track_name, primary_artist)
+        
+        # If we've seen this song+artist combo, keep the more popular version
+        if dedup_key in dedup_map:
+            existing_idx = dedup_map[dedup_key]
+            existing_pop = all_tracks[existing_idx].get("popularity", 0)
+            new_pop = t.get("popularity", 0)
+            if new_pop > existing_pop:
+                # Replace with more popular version
+                old_id = all_tracks[existing_idx].get("id")
+                if old_id:
+                    seen_ids.discard(old_id)
+                all_tracks[existing_idx] = t
+                seen_ids.add(tid)
+            return
+        
+        dedup_map[dedup_key] = len(all_tracks)
+        all_tracks.append(t)
+        seen_ids.add(tid)
+
+    async def _search_and_collect(query: str, search_limit: int = 10) -> None:
+        """Run a search query and add results."""
+        params = {"q": query, "type": "track", "limit": search_limit}
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(search_url, headers=headers, params=params)
+                if resp.status_code == 200:
+                    items = resp.json().get("tracks", {}).get("items", [])
+                    for t in items:
+                        _add_track(t)
+        except Exception:
+            pass
+
+    # Step 3: Search for each top artist + mood descriptors/genres
+    if top_artist_names:
+        shuffled_artists = list(top_artist_names)
+        random.shuffle(shuffled_artists)
+
+        for artist_name in shuffled_artists[:6]:
+            # First try with mood descriptors (more targeted)
+            if mood_descriptors:
+                descriptor = random.choice(mood_descriptors)
+                await _search_and_collect(f"artist:{artist_name} {descriptor}")
+            
+            # Then try with mood genres
+            for genre in mood_genres[:2]:
+                await _search_and_collect(f"artist:{artist_name} genre:{genre}")
+
+            if len(all_tracks) >= limit:
+                break
+
+    # Step 4: If we still need more, do general mood searches
+    if len(all_tracks) < limit:
+        # Use descriptors for more targeted general searches
+        for descriptor in (mood_descriptors or [mood_keyword])[:3]:
+            for genre in mood_genres[:2]:
+                await _search_and_collect(
+                    f"{descriptor} genre:{genre}",
+                    search_limit=min(20, limit - len(all_tracks))
+                )
+                if len(all_tracks) >= limit:
+                    break
+            if len(all_tracks) >= limit:
+                break
+
+    # Remove any None entries from replacements in dedup
+    all_tracks = [t for t in all_tracks if t is not None]
+    
+    # Shuffle final results for a fresh feel
+    random.shuffle(all_tracks)
+    result = all_tracks[:limit]
+    print(f"[Apollo] Returning {len(result)} tracks ({len([t for t in result if any(a['name'] in top_artist_names for a in t.get('artists', []))])} from user's artists)")
+    return result
 
 
 # ============================================================
@@ -192,8 +420,8 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20):
     mood_profile = MOOD_PROFILES[mood]
 
     try:
-        tracks = await _search_tracks_by_mood(access_token, mood_profile, limit)
-    except httpx.HTTPStatusError as e:
+        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
+    except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 
     return {
@@ -297,8 +525,8 @@ async def mood_recommendations(request: Request):
     mood_profile = MOOD_PROFILES[mood]
 
     try:
-        tracks = await _search_tracks_by_mood(access_token, mood_profile, limit)
-    except httpx.HTTPStatusError as e:
+        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
+    except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 
     return {
