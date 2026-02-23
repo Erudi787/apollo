@@ -12,7 +12,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 load_dotenv()
 
 app = FastAPI(
-    title="Apollo 𓏢",
+    title="AI.pollo 𓏢",
     description="AI-powered mood-based music playlist recommender using Spotify API",
     version="0.1",
 )
@@ -36,7 +36,7 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "message": "Apollo backend is up and running bishh",
+        "message": "AI.pollo backend is up and running bishh",
         "version": "0.1",
         "docs": "/docs",
     }

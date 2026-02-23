@@ -14,7 +14,7 @@ export default function Navbar() {
                     {/* Logo */}
                     <div className="flex items-center gap-3">
                         <span className="text-2xl">𓏢</span>
-                        <span className="text-xl font-bold gradient-text">Apollo</span>
+                        <span className="text-xl font-bold gradient-text">AI.pollo</span>
                     </div>
 
                     {/* Right Side */}

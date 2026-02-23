@@ -12,7 +12,7 @@ function App() {
       <div className="min-h-screen flex items-center justify-center gradient-bg">
         <div className="text-center animate-fade-in">
           <div className="text-6xl mb-4 animate-float">𓏢</div>
-          <p className="text-slate-300 text-lg font-medium tracking-wide">Loading Apollo...</p>
+          <p className="text-slate-300 text-lg font-medium tracking-wide">Loading AI.pollo...</p>
         </div>
       </div>
     )

@@ -173,6 +173,25 @@ body {
   animation: mesh-blob-3 20s ease-in-out infinite;
 }
 
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+/* Pause marquee on hover if needed */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 /* Noise overlay to prevent gradient banding and add texture */
 .noise-overlay {
   position: fixed;

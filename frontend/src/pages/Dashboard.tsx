@@ -171,7 +171,7 @@ export default function Dashboard() {
                                         </motion.div>
                                         <h2 className="font-display text-3xl font-bold mb-4">Awaiting Signal</h2>
                                         <p className="text-white/40 max-w-sm text-lg font-light leading-relaxed">
-                                            Select a mood or describe your feelings to tune Apollo to your wavelength.
+                                            Select a mood or describe your feelings to tune AI.pollo to your wavelength.
                                         </p>
                                     </motion.div>
                                 )}

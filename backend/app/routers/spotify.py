@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 import httpx
+import asyncio
 import random
 from dotenv import load_dotenv
 from app.config.mood_profiles import MOOD_PROFILES, MOOD_KEYWORDS, MOOD_ASSOCIATIONS
@@ -58,7 +59,7 @@ async def _fetch_followed_artists(access_token: str, limit: int = 20) -> list[di
             resp.raise_for_status()
             return resp.json().get("artists", {}).get("items", [])
     except Exception as e:
-        print(f"[Apollo] Failed to fetch followed artists: {e}")
+        print(f"[AI.pollo] Failed to fetch followed artists: {e}")
         return []
 
 
@@ -71,7 +72,7 @@ async def _fetch_related_artists(access_token: str, artist_id: str) -> list[dict
             resp.raise_for_status()
             return resp.json().get("artists", [])
     except Exception as e:
-        print(f"[Apollo] Failed to fetch related artists for {artist_id}: {e}")
+        print(f"[AI.pollo] Failed to fetch related artists for {artist_id}: {e}")
         return []
 
 
@@ -129,11 +130,11 @@ def _analyze_text_mood(text: str) -> tuple[str | None, float, dict[str, int]]:
         confidence = association_scores[best_mood] / total
         # Populate mood_scores for the response
         mood_scores[best_mood] = association_scores[best_mood]
-        print(f"[Apollo] Mood detected via associations: '{best_mood}' from text '{text}' (confidence: {confidence:.2f})")
+        print(f"[AI.pollo] Mood detected via associations: '{best_mood}' from text '{text}' (confidence: {confidence:.2f})")
         return best_mood, confidence, mood_scores
 
     # No match at all
-    print(f"[Apollo] Could not detect mood from text: '{text}'")
+    print(f"[AI.pollo] Could not detect mood from text: '{text}'")
     return None, 0, mood_scores
 
 
@@ -169,198 +170,201 @@ async def _get_personalized_recommendations(
 ) -> list[dict]:
     """Get mood-matched, personalized tracks using Spotify Search API.
     
-    Strategy (since /recommendations is deprecated for basic-tier apps):
-    1. Fetch user's top artists for personalization
-    2. Search for each artist's tracks using mood-related keywords to filter
-    3. Combine results for variety and deduplicate
-    
-    This naturally produces personalized + mood-accurate results because the 
-    search query constrains both artist (taste) and mood (keywords/genre).
+    Optimized: uses a single httpx client and parallelizes all API calls.
     """
     headers = _auth_header(access_token)
     search_url = "https://api.spotify.com/v1/search"
 
-    # === Artist Discovery Pipeline ===
-    # Three tiers: followed (highest priority) > top-track artists > discovered/related
-    followed_artists: list[dict] = []  # {name, id}
-    top_artists: list[dict] = []       # {name, id}
-    discovered_artists: list[dict] = []  # {name, id}
-    all_artist_names: set[str] = set()
+    import time
+    t_start = time.time()
 
-    # Tier 1: Followed artists (explicit taste — highest priority)
-    try:
-        followed = await _fetch_followed_artists(access_token, limit=30)
-        for a in followed:
-            name = a.get("name")
-            aid = a.get("id")
+    # === Phase 1: Fetch followed + top tracks IN PARALLEL ===
+    async with httpx.AsyncClient(headers=headers, timeout=10.0) as client:
+
+        async def _get_followed():
+            try:
+                r = await client.get("https://api.spotify.com/v1/me/following",
+                                     params={"type": "artist", "limit": 30})
+                r.raise_for_status()
+                return r.json().get("artists", {}).get("items", [])
+            except Exception as e:
+                print(f"[AI.pollo] Failed to fetch followed: {e}")
+                return []
+
+        async def _get_top(time_range: str):
+            try:
+                r = await client.get("https://api.spotify.com/v1/me/top/tracks",
+                                     params={"time_range": time_range, "limit": 20})
+                r.raise_for_status()
+                return r.json().get("items", [])
+            except Exception:
+                return []
+
+        async def _get_related(artist_id: str):
+            try:
+                r = await client.get(f"https://api.spotify.com/v1/artists/{artist_id}/related-artists")
+                r.raise_for_status()
+                return r.json().get("artists", [])
+            except Exception:
+                return []
+
+        # Parallel: followed + short-term top tracks
+        followed_raw, top_tracks = await asyncio.gather(
+            _get_followed(),
+            _get_top("short_term")
+        )
+
+        # Fallback to medium_term if no short-term history
+        if not top_tracks:
+            top_tracks = await _get_top("medium_term")
+
+        t_phase1 = time.time()
+        print(f"[AI.pollo] Phase 1 (followed+top) took {t_phase1 - t_start:.2f}s")
+
+        # === Extract artists into tiers ===
+        followed_artists: list[dict] = []
+        top_artists: list[dict] = []
+        all_artist_names: set[str] = set()
+
+        for a in followed_raw:
+            name, aid = a.get("name"), a.get("id")
             if name and name not in all_artist_names:
                 followed_artists.append({"name": name, "id": aid})
                 all_artist_names.add(name)
-    except Exception as e:
-        print(f"[Apollo] Could not fetch followed artists: {e}")
 
-    # Tier 2: Top-track artists (listening history)
-    try:
-        top_tracks = await _fetch_top_tracks(access_token, time_range="short_term", limit=20)
-        if not top_tracks:
-            top_tracks = await _fetch_top_tracks(access_token, time_range="medium_term", limit=20)
-    except Exception as e:
-        print(f"[Apollo] Failed to fetch top tracks: {e}")
-        top_tracks = []
+        if top_tracks:
+            for track in top_tracks:
+                for artist in track.get("artists", []):
+                    name, aid = artist.get("name"), artist.get("id")
+                    if name and name not in all_artist_names:
+                        top_artists.append({"name": name, "id": aid})
+                        all_artist_names.add(name)
+                        if len(top_artists) >= 10:
+                            break
+                if len(top_artists) >= 10:
+                    break
 
-    if top_tracks:
-        for track in top_tracks:
-            for artist in track.get("artists", []):
-                name = artist.get("name")
-                aid = artist.get("id")
-                if name and name not in all_artist_names:
-                    top_artists.append({"name": name, "id": aid})
-                    all_artist_names.add(name)
-                    if len(top_artists) >= 10:
-                        break
-            if len(top_artists) >= 10:
-                break
+        # === Phase 2: Discover related artists IN PARALLEL ===
+        seeds = (followed_artists[:3] + top_artists[:2])
+        random.shuffle(seeds)
+        seed_ids = [s["id"] for s in seeds[:3] if s.get("id")]
 
-    # Tier 3: Discovered artists via related-artists API
-    # Pick a few seed artists (mix of followed + top) and fetch their related artists
-    seed_for_discovery = (followed_artists[:3] + top_artists[:2])
-    random.shuffle(seed_for_discovery)
-    for seed in seed_for_discovery[:3]:
-        if not seed.get("id"):
-            continue
-        try:
-            related = await _fetch_related_artists(access_token, seed["id"])
-            for a in related[:5]:  # take top 5 related per seed
-                name = a.get("name")
-                aid = a.get("id")
-                if name and name not in all_artist_names:
-                    discovered_artists.append({"name": name, "id": aid})
-                    all_artist_names.add(name)
-        except Exception:
-            continue
+        discovered_artists: list[dict] = []
+        if seed_ids:
+            related_results = await asyncio.gather(*[_get_related(sid) for sid in seed_ids])
+            for related_list in related_results:
+                for a in related_list[:5]:
+                    name, aid = a.get("name"), a.get("id")
+                    if name and name not in all_artist_names:
+                        discovered_artists.append({"name": name, "id": aid})
+                        all_artist_names.add(name)
 
-    print(f"[Apollo] Followed: {[a['name'] for a in followed_artists[:5]]}...")
-    print(f"[Apollo] Top: {[a['name'] for a in top_artists[:5]]}...")
-    print(f"[Apollo] Discovered: {[a['name'] for a in discovered_artists[:5]]}...")
+        t_phase2 = time.time()
+        print(f"[AI.pollo] Phase 2 (related artists) took {t_phase2 - t_phase1:.2f}s")
+        print(f"[AI.pollo] Followed: {[a['name'] for a in followed_artists[:5]]}")
+        print(f"[AI.pollo] Top: {[a['name'] for a in top_artists[:5]]}")
+        print(f"[AI.pollo] Discovered: {[a['name'] for a in discovered_artists[:5]]}")
 
-    # Build prioritized artist list:
-    # Followed artists get most slots, then discovered (for exploration), then top
-    artist_pool: list[str] = []
-    
-    # Shuffle within tiers for variety
-    random.shuffle(followed_artists)
-    random.shuffle(discovered_artists)
-    random.shuffle(top_artists)
-    
-    # Followed: up to 6 (these are the user's explicit taste)
-    for a in followed_artists[:6]:
-        artist_pool.append(a["name"])
-    # Discovered: up to 4 (exploration of similar artists)
-    for a in discovered_artists[:4]:
-        artist_pool.append(a["name"])
-    # Top: up to 3 (listening history fills the rest)
-    for a in top_artists[:3]:
-        if a["name"] not in set(artist_pool):
+        # === Build prioritized artist pool ===
+        random.shuffle(followed_artists)
+        random.shuffle(discovered_artists)
+        random.shuffle(top_artists)
+
+        artist_pool: list[str] = []
+        for a in followed_artists[:6]:
             artist_pool.append(a["name"])
+        for a in discovered_artists[:4]:
+            artist_pool.append(a["name"])
+        for a in top_artists[:3]:
+            if a["name"] not in set(artist_pool):
+                artist_pool.append(a["name"])
 
-    # Step 2: Build mood search keywords from the profile
-    mood_genres = mood_profile.get("genres", [])
-    mood_descriptors = mood_profile.get("search_descriptors", [])
-    mood_desc = mood_profile.get("description", "")
-    mood_keyword = mood_descriptors[0] if mood_descriptors else (
-        mood_genres[0] if mood_genres else mood_desc.split(",")[0].strip()
-    )
+        # Mood params
+        mood_genres = mood_profile.get("genres", [])
+        mood_descriptors = mood_profile.get("search_descriptors", [])
+        mood_keyword = mood_descriptors[0] if mood_descriptors else (
+            mood_genres[0] if mood_genres else "music"
+        )
 
-    print(f"[Apollo] Artist pool ({len(artist_pool)}): {artist_pool}")
-    print(f"[Apollo] Mood keyword: {mood_keyword}, descriptors: {mood_descriptors}, genres: {mood_genres[:3]}")
+        print(f"[AI.pollo] Artist pool ({len(artist_pool)}): {artist_pool}")
 
-    all_tracks: list[dict] = []
-    seen_ids: set[str] = set()
-    # Dedup key: normalized (track_name, primary_artist) -> index in all_tracks
-    dedup_map: dict[tuple[str, str], int] = {}
+        # === Phase 3: Search all artists IN PARALLEL ===
+        all_tracks: list[dict] = []
+        seen_ids: set[str] = set()
+        dedup_map: dict[tuple[str, str], int] = {}
 
-    def _add_track(t: dict) -> None:
-        """Add a track with deduplication by name + primary artist."""
-        tid = t.get("id")
-        if not tid or tid in seen_ids or _is_junk_track(t):
-            return
-        
-        # Build dedup key
-        track_name = (t.get("name") or "").lower().strip()
-        primary_artist = ""
-        artists = t.get("artists", [])
-        if artists:
-            primary_artist = (artists[0].get("name") or "").lower().strip()
-        dedup_key = (track_name, primary_artist)
-        
-        # If we've seen this song+artist combo, keep the more popular version
-        if dedup_key in dedup_map:
-            existing_idx = dedup_map[dedup_key]
-            existing_pop = all_tracks[existing_idx].get("popularity", 0)
-            new_pop = t.get("popularity", 0)
-            if new_pop > existing_pop:
-                old_id = all_tracks[existing_idx].get("id")
-                if old_id:
-                    seen_ids.discard(old_id)
-                all_tracks[existing_idx] = t
-                seen_ids.add(tid)
-            return
-        
-        dedup_map[dedup_key] = len(all_tracks)
-        all_tracks.append(t)
-        seen_ids.add(tid)
+        def _add_track(t: dict) -> None:
+            tid = t.get("id")
+            if not tid or tid in seen_ids or _is_junk_track(t):
+                return
+            track_name = (t.get("name") or "").lower().strip()
+            primary_artist = ""
+            artists = t.get("artists", [])
+            if artists:
+                primary_artist = (artists[0].get("name") or "").lower().strip()
+            dedup_key = (track_name, primary_artist)
+            if dedup_key in dedup_map:
+                existing_idx = dedup_map[dedup_key]
+                if t.get("popularity", 0) > all_tracks[existing_idx].get("popularity", 0):
+                    old_id = all_tracks[existing_idx].get("id")
+                    if old_id:
+                        seen_ids.discard(old_id)
+                    all_tracks[existing_idx] = t
+                    seen_ids.add(tid)
+                return
+            dedup_map[dedup_key] = len(all_tracks)
+            all_tracks.append(t)
+            seen_ids.add(tid)
 
-    async def _search_and_collect(query: str, search_limit: int = 10) -> None:
-        """Run a search query and add results."""
-        params = {"q": query, "type": "track", "limit": search_limit}
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(search_url, headers=headers, params=params)
-                if resp.status_code == 200:
-                    items = resp.json().get("tracks", {}).get("items", [])
-                    for t in items:
-                        _add_track(t)
-        except Exception:
-            pass
+        async def _search(query: str, search_limit: int = 10) -> list[dict]:
+            """Run search and return raw items (no side effects)."""
+            try:
+                r = await client.get(search_url, params={"q": query, "type": "track", "limit": search_limit})
+                if r.status_code == 200:
+                    return r.json().get("tracks", {}).get("items", [])
+            except Exception:
+                pass
+            return []
 
-    # Step 3: Search for each artist in pool
-    # Strategy: search by artist name ALONE first (guarantees their tracks appear),
-    # then optionally refine with mood descriptors for variety
-    if artist_pool:
+        # Build all search queries upfront
+        search_tasks = []
         for artist_name in artist_pool:
-            # Primary: just get this artist's tracks (no genre/descriptor constraint)
-            await _search_and_collect(f"artist:{artist_name}", search_limit=5)
-            
-            # Secondary: artist + mood descriptor for mood-specific tracks
+            search_tasks.append(_search(f"artist:{artist_name}", search_limit=5))
             if mood_descriptors:
                 descriptor = random.choice(mood_descriptors)
-                await _search_and_collect(f"artist:{artist_name} {descriptor}", search_limit=5)
+                search_tasks.append(_search(f"artist:{artist_name} {descriptor}", search_limit=5))
 
-            if len(all_tracks) >= limit * 2:  # overfetch to allow good shuffle
-                break
+        # Fire ALL searches in parallel
+        search_results = await asyncio.gather(*search_tasks)
 
-    # Step 4: If we still need more, do general mood searches
-    if len(all_tracks) < limit:
-        for descriptor in (mood_descriptors or [mood_keyword])[:3]:
-            for genre in mood_genres[:2]:
-                await _search_and_collect(
-                    f"{descriptor} genre:{genre}",
-                    search_limit=min(20, limit - len(all_tracks))
-                )
-                if len(all_tracks) >= limit:
-                    break
-            if len(all_tracks) >= limit:
-                break
+        # Collect results sequentially (dedup is order-sensitive)
+        for items in search_results:
+            for t in items:
+                _add_track(t)
 
-    # Remove any None entries from replacements in dedup
+        t_phase3 = time.time()
+        print(f"[AI.pollo] Phase 3 (parallel search, {len(search_tasks)} queries) took {t_phase3 - t_phase2:.2f}s")
+
+        # Step 4: Fill remaining with general mood searches (also parallel)
+        if len(all_tracks) < limit:
+            fill_tasks = []
+            for descriptor in (mood_descriptors or [mood_keyword])[:3]:
+                for genre in mood_genres[:2]:
+                    fill_tasks.append(_search(f"{descriptor} genre:{genre}", search_limit=10))
+            if fill_tasks:
+                fill_results = await asyncio.gather(*fill_tasks)
+                for items in fill_results:
+                    for t in items:
+                        _add_track(t)
+
+    # Final cleanup
     all_tracks = [t for t in all_tracks if t is not None]
-    
-    # Shuffle final results for a fresh feel
     random.shuffle(all_tracks)
     result = all_tracks[:limit]
     pool_set = set(artist_pool)
     matched = len([t for t in result if any(a.get('name', '') in pool_set for a in t.get('artists', []))])
-    print(f"[Apollo] Returning {len(result)} tracks ({matched} from artist pool)")
+    t_total = time.time() - t_start
+    print(f"[AI.pollo] Returning {len(result)} tracks ({matched} from artist pool) in {t_total:.2f}s total")
     return result
 
 
