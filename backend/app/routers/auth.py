@@ -24,7 +24,7 @@ spotify_auth_url = "https://accounts.spotify.com/authorize"
 spotify_token_url = "https://accounts.spotify.com/api/token"
 
 # Scopes
-SCOPES = "user-read-private user-read-email user-top-read playlist-modify-public playlist-modify-private"
+SCOPES = "user-read-private user-read-email user-top-read user-follow-read playlist-modify-public playlist-modify-private"
 
 
 # ============================================================

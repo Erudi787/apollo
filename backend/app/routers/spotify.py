@@ -62,6 +62,19 @@ async def _fetch_followed_artists(access_token: str, limit: int = 20) -> list[di
         return []
 
 
+async def _fetch_related_artists(access_token: str, artist_id: str) -> list[dict]:
+    """Fetch artists related to the given artist (Spotify's 'fans also like')."""
+    url = f"https://api.spotify.com/v1/artists/{artist_id}/related-artists"
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=_auth_header(access_token))
+            resp.raise_for_status()
+            return resp.json().get("artists", [])
+    except Exception as e:
+        print(f"[Apollo] Failed to fetch related artists for {artist_id}: {e}")
+        return []
+
+
 async def _search_tracks_by_mood(access_token: str, mood_profile: dict, limit: int = 20) -> list[dict]:
     """Search Spotify for tracks matching a mood profile's genres."""
     search_genres = mood_profile["genres"][:2]
@@ -167,8 +180,26 @@ async def _get_personalized_recommendations(
     headers = _auth_header(access_token)
     search_url = "https://api.spotify.com/v1/search"
 
-    # Step 1: Fetch user's top artists
-    top_artist_names = []
+    # === Artist Discovery Pipeline ===
+    # Three tiers: followed (highest priority) > top-track artists > discovered/related
+    followed_artists: list[dict] = []  # {name, id}
+    top_artists: list[dict] = []       # {name, id}
+    discovered_artists: list[dict] = []  # {name, id}
+    all_artist_names: set[str] = set()
+
+    # Tier 1: Followed artists (explicit taste — highest priority)
+    try:
+        followed = await _fetch_followed_artists(access_token, limit=30)
+        for a in followed:
+            name = a.get("name")
+            aid = a.get("id")
+            if name and name not in all_artist_names:
+                followed_artists.append({"name": name, "id": aid})
+                all_artist_names.add(name)
+    except Exception as e:
+        print(f"[Apollo] Could not fetch followed artists: {e}")
+
+    # Tier 2: Top-track artists (listening history)
     try:
         top_tracks = await _fetch_top_tracks(access_token, time_range="short_term", limit=20)
         if not top_tracks:
@@ -177,44 +208,70 @@ async def _get_personalized_recommendations(
         print(f"[Apollo] Failed to fetch top tracks: {e}")
         top_tracks = []
 
-    # Extract unique artist names from top tracks
     if top_tracks:
-        seen = set()
         for track in top_tracks:
             for artist in track.get("artists", []):
                 name = artist.get("name")
-                if name and name not in seen:
-                    top_artist_names.append(name)
-                    seen.add(name)
-                    if len(top_artist_names) >= 8:
+                aid = artist.get("id")
+                if name and name not in all_artist_names:
+                    top_artists.append({"name": name, "id": aid})
+                    all_artist_names.add(name)
+                    if len(top_artists) >= 10:
                         break
-            if len(top_artist_names) >= 8:
+            if len(top_artists) >= 10:
                 break
 
-    # Also fetch followed artists for broader personalization
-    try:
-        followed = await _fetch_followed_artists(access_token, limit=20)
-        seen_names = set(top_artist_names)
-        for artist in followed:
-            name = artist.get("name")
-            if name and name not in seen_names:
-                top_artist_names.append(name)
-                seen_names.add(name)
-                if len(top_artist_names) >= 12:
-                    break
-    except Exception as e:
-        print(f"[Apollo] Could not merge followed artists: {e}")
+    # Tier 3: Discovered artists via related-artists API
+    # Pick a few seed artists (mix of followed + top) and fetch their related artists
+    seed_for_discovery = (followed_artists[:3] + top_artists[:2])
+    random.shuffle(seed_for_discovery)
+    for seed in seed_for_discovery[:3]:
+        if not seed.get("id"):
+            continue
+        try:
+            related = await _fetch_related_artists(access_token, seed["id"])
+            for a in related[:5]:  # take top 5 related per seed
+                name = a.get("name")
+                aid = a.get("id")
+                if name and name not in all_artist_names:
+                    discovered_artists.append({"name": name, "id": aid})
+                    all_artist_names.add(name)
+        except Exception:
+            continue
+
+    print(f"[Apollo] Followed: {[a['name'] for a in followed_artists[:5]]}...")
+    print(f"[Apollo] Top: {[a['name'] for a in top_artists[:5]]}...")
+    print(f"[Apollo] Discovered: {[a['name'] for a in discovered_artists[:5]]}...")
+
+    # Build prioritized artist list:
+    # Followed artists get most slots, then discovered (for exploration), then top
+    artist_pool: list[str] = []
+    
+    # Shuffle within tiers for variety
+    random.shuffle(followed_artists)
+    random.shuffle(discovered_artists)
+    random.shuffle(top_artists)
+    
+    # Followed: up to 6 (these are the user's explicit taste)
+    for a in followed_artists[:6]:
+        artist_pool.append(a["name"])
+    # Discovered: up to 4 (exploration of similar artists)
+    for a in discovered_artists[:4]:
+        artist_pool.append(a["name"])
+    # Top: up to 3 (listening history fills the rest)
+    for a in top_artists[:3]:
+        if a["name"] not in set(artist_pool):
+            artist_pool.append(a["name"])
 
     # Step 2: Build mood search keywords from the profile
     mood_genres = mood_profile.get("genres", [])
     mood_descriptors = mood_profile.get("search_descriptors", [])
     mood_desc = mood_profile.get("description", "")
-    # Use descriptors first, then fall back to genres/description
     mood_keyword = mood_descriptors[0] if mood_descriptors else (
         mood_genres[0] if mood_genres else mood_desc.split(",")[0].strip()
     )
 
-    print(f"[Apollo] User top artists: {top_artist_names}")
+    print(f"[Apollo] Artist pool ({len(artist_pool)}): {artist_pool}")
     print(f"[Apollo] Mood keyword: {mood_keyword}, descriptors: {mood_descriptors}, genres: {mood_genres[:3]}")
 
     all_tracks: list[dict] = []
@@ -242,7 +299,6 @@ async def _get_personalized_recommendations(
             existing_pop = all_tracks[existing_idx].get("popularity", 0)
             new_pop = t.get("popularity", 0)
             if new_pop > existing_pop:
-                # Replace with more popular version
                 old_id = all_tracks[existing_idx].get("id")
                 if old_id:
                     seen_ids.discard(old_id)
@@ -267,27 +323,24 @@ async def _get_personalized_recommendations(
         except Exception:
             pass
 
-    # Step 3: Search for each top artist + mood descriptors/genres
-    if top_artist_names:
-        shuffled_artists = list(top_artist_names)
-        random.shuffle(shuffled_artists)
-
-        for artist_name in shuffled_artists[:6]:
-            # First try with mood descriptors (more targeted)
+    # Step 3: Search for each artist in pool
+    # Strategy: search by artist name ALONE first (guarantees their tracks appear),
+    # then optionally refine with mood descriptors for variety
+    if artist_pool:
+        for artist_name in artist_pool:
+            # Primary: just get this artist's tracks (no genre/descriptor constraint)
+            await _search_and_collect(f"artist:{artist_name}", search_limit=5)
+            
+            # Secondary: artist + mood descriptor for mood-specific tracks
             if mood_descriptors:
                 descriptor = random.choice(mood_descriptors)
-                await _search_and_collect(f"artist:{artist_name} {descriptor}")
-            
-            # Then try with mood genres
-            for genre in mood_genres[:2]:
-                await _search_and_collect(f"artist:{artist_name} genre:{genre}")
+                await _search_and_collect(f"artist:{artist_name} {descriptor}", search_limit=5)
 
-            if len(all_tracks) >= limit:
+            if len(all_tracks) >= limit * 2:  # overfetch to allow good shuffle
                 break
 
     # Step 4: If we still need more, do general mood searches
     if len(all_tracks) < limit:
-        # Use descriptors for more targeted general searches
         for descriptor in (mood_descriptors or [mood_keyword])[:3]:
             for genre in mood_genres[:2]:
                 await _search_and_collect(
@@ -305,7 +358,9 @@ async def _get_personalized_recommendations(
     # Shuffle final results for a fresh feel
     random.shuffle(all_tracks)
     result = all_tracks[:limit]
-    print(f"[Apollo] Returning {len(result)} tracks ({len([t for t in result if any(a['name'] in top_artist_names for a in t.get('artists', []))])} from user's artists)")
+    pool_set = set(artist_pool)
+    matched = len([t for t in result if any(a.get('name', '') in pool_set for a in t.get('artists', []))])
+    print(f"[Apollo] Returning {len(result)} tracks ({matched} from artist pool)")
     return result
 
 
