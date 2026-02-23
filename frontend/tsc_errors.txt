@@ -1,0 +1,1 @@
+src/components/MoodSelector.tsx(3,18): error TS6133: 'AnimatePresence' is declared but its value is never read.
