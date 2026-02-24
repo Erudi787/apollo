@@ -21,16 +21,20 @@ function App() {
   return (
     <Routes>
       <Route
-        path="/login"
-        element={user ? <Navigate to="/" replace /> : <LoginPage />}
+        path="/"
+        element={<LoginPage />}
       />
       <Route
         path="/callback"
         element={<CallbackHandler />}
       />
       <Route
-        path="/"
-        element={user ? <Dashboard /> : <Navigate to="/login" replace />}
+        path="/dashboard"
+        element={user ? <Dashboard /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/login"
+        element={<Navigate to="/" replace />}
       />
     </Routes>
   )

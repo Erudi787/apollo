@@ -1,8 +1,64 @@
+import { useMemo, useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
-import { motion, type Variants } from 'framer-motion'
+import { motion, AnimatePresence, type Variants } from 'framer-motion'
+import { LogOut } from 'lucide-react'
 
 export default function LoginPage() {
-    const { login } = useAuth()
+    const { user, login, logout } = useAuth()
+    const navigate = useNavigate()
+
+    const [scrolled, setScrolled] = useState(false)
+    const buttonRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (!entry.isIntersecting && entry.boundingClientRect.top < 0) {
+                    setScrolled(true)
+                } else {
+                    setScrolled(false)
+                }
+            },
+            { threshold: 0 }
+        )
+
+        if (buttonRef.current) {
+            observer.observe(buttonRef.current)
+        }
+
+        return () => observer.disconnect()
+    }, [])
+
+    const COLORS = [
+        'var(--color-brand-cyan)',
+        'var(--color-brand-purple)',
+        'var(--color-aura-happy)',
+        'var(--color-aura-sad)',
+        'var(--color-aura-energetic)',
+        'var(--color-aura-chill)',
+        'var(--color-aura-nostalgic)',
+        'var(--color-aura-melancholic)',
+        'var(--color-aura-sensual)',
+    ];
+
+    const ARTISTS = [
+        "Chase Atlantic", "SZA", "sombr", "Luke Chiang", "Emotional Oranges", "Galdive",
+        "The Weeknd", "Arctic Monkeys", "Lana Del Rey", "Frank Ocean", "Tame Impala",
+        "Joji", "Billie Eilish", "Mac DeMarco", "Cigarettes After Sex", "Rex Orange County",
+        "Daniel Caesar", "Brent Faiyaz", "PinkPantheress", "Steve Lacy", "Tyler, The Creator",
+        "Kali Uchis", "Hozier", "Mac Miller", "Clairo", "beabadoobee", "Dominic Fike",
+        "J. Cole", "Kendrick Lamar", "Drake", "Post Malone", "Doja Cat", "Olivia Rodrigo"
+    ];
+
+    const shuffledArtists = useMemo(() => {
+        return [...ARTISTS]
+            .sort(() => Math.random() - 0.5)
+            .map(name => {
+                const color = COLORS[Math.floor(Math.random() * COLORS.length)]
+                return { name, color }
+            })
+    }, [])
 
     // Liquid Aura constraints and variants
     const containerVariants: Variants = {
@@ -36,7 +92,68 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen relative overflow-x-hidden bg-black text-white font-sans selection:bg-brand-purple selection:text-white">
+        <div className="min-h-screen relative w-full overflow-x-hidden bg-black text-white font-sans selection:bg-brand-purple selection:text-white">
+
+            {/* Sticky Header for Landing Page */}
+            <AnimatePresence>
+                {scrolled && (
+                    <motion.nav
+                        initial={{ y: -100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: -100, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="fixed top-0 left-0 right-0 z-50 true-glass border-b border-white/5 px-6 py-4 flex justify-between items-center"
+                    >
+                        <div className="font-display font-bold text-xl tracking-tight text-white flex items-center gap-2">
+                            <span className="text-brand-cyan">AI.</span>pollo
+                        </div>
+                        {user ? (
+                            <div className="flex items-center gap-3">
+                                {/* Profile Info */}
+                                <div className="hidden sm:flex items-center gap-3 bg-white/5 rounded-full pl-2 pr-4 py-1.5 border border-white/10">
+                                    {user.images?.[0]?.url ? (
+                                        <img
+                                            src={user.images[0].url}
+                                            alt={user.display_name || 'User'}
+                                            className="w-7 h-7 rounded-full ring-2 ring-brand-cyan/50"
+                                        />
+                                    ) : (
+                                        <div className="w-7 h-7 rounded-full bg-brand-purple/80 flex items-center justify-center text-white text-xs font-bold">
+                                            {(user.display_name || 'U')[0].toUpperCase()}
+                                        </div>
+                                    )}
+                                    <span className="text-sm font-medium text-white/90 truncate max-w-[120px]">
+                                        {user.display_name || 'Spotify User'}
+                                    </span>
+                                </div>
+                                <button
+                                    onClick={() => navigate('/dashboard')}
+                                    className="px-6 py-2 rounded-full magnetic-btn font-display font-bold text-sm tracking-wide text-white transition-transform hover:scale-105 active:scale-95 bg-white/10 hover:bg-white/20"
+                                >
+                                    Explore Songs →
+                                </button>
+                                <button
+                                    onClick={logout}
+                                    className="p-2 ml-1 rounded-full text-white/60 hover:text-red-400 hover:bg-red-400/10 transition-colors"
+                                    aria-label="Log out"
+                                >
+                                    <LogOut size={20} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={login}
+                                className="px-6 py-2 flex items-center gap-2 rounded-full magnetic-btn font-display font-bold text-sm tracking-wide text-white transition-transform hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-4 h-4 text-spotify" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                                </svg>
+                                Connect
+                            </button>
+                        )}
+                    </motion.nav>
+                )}
+            </AnimatePresence>
 
             {/* Animated Liquid Aura Mesh Background (Fixed pos so it stays during scroll) */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
@@ -102,53 +219,56 @@ export default function LoginPage() {
                     </motion.p>
 
                     {/* Premium Magnetic Button */}
-                    <motion.div variants={itemVariants} className="w-full sm:w-auto relative z-20">
-                        <button
-                            onClick={login}
-                            className="w-full sm:w-auto px-12 py-5 sm:py-6 rounded-full magnetic-btn flex items-center justify-center gap-4 group transition-transform hover:scale-105 active:scale-95"
-                        >
-                            <svg className="w-8 h-8 text-white group-hover:text-spotify transition-colors" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
-                            </svg>
-                            <span className="font-display font-bold text-xl tracking-wide text-white">
-                                Connect with Spotify
-                            </span>
-                        </button>
+                    <motion.div ref={buttonRef} variants={itemVariants} className="w-full sm:w-auto relative z-20">
+                        {user ? (
+                            <button
+                                onClick={() => navigate('/dashboard')}
+                                className="w-full sm:w-auto px-12 py-5 sm:py-6 rounded-full magnetic-btn flex items-center justify-center gap-4 group transition-transform hover:scale-105 active:scale-95 bg-white/10 hover:bg-white/20"
+                            >
+                                <span className="font-display font-bold text-xl tracking-wide text-white group-hover:text-brand-cyan transition-colors">
+                                    Explore Songs →
+                                </span>
+                            </button>
+                        ) : (
+                            <button
+                                onClick={login}
+                                className="w-full sm:w-auto px-12 py-5 sm:py-6 rounded-full magnetic-btn flex items-center justify-center gap-4 group transition-transform hover:scale-105 active:scale-95"
+                            >
+                                <svg className="w-8 h-8 text-white group-hover:text-spotify transition-colors" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                                </svg>
+                                <span className="font-display font-bold text-xl tracking-wide text-white">
+                                    Connect with Spotify
+                                </span>
+                            </button>
+                        )}
                     </motion.div>
 
                     {/* Infinite Marquee Strip */}
                     <motion.div
                         variants={itemVariants}
-                        className="w-[100vw] overflow-hidden mt-16 sm:mt-24 py-4 border-y border-white/5 bg-white/[0.02] relative left-1/2 -translate-x-1/2"
+                        className="w-[100vw] overflow-hidden mt-16 sm:mt-24 py-4 border-y border-white/5 bg-white/[0.02]"
                     >
-                        <div className="flex animate-marquee whitespace-nowrap w-[200%] hover:animation-play-state-paused">
-                            {/* Duplicate content to make the loop seamless */}
-                            {[1, 2].map((i) => (
-                                <div key={i} className="flex gap-8 sm:gap-16 items-center px-4 sm:px-8 w-1/2 justify-around">
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-brand-cyan/50 shadow-[0_0_10px_rgba(0,242,254,0.5)]" />
-                                        Chase Atlantic
-                                    </span>
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-brand-purple/50 shadow-[0_0_10px_rgba(79,172,254,0.5)]" />
-                                        SZA
-                                    </span>
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                                        sombr
-                                    </span>
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-brand-cyan/50 shadow-[0_0_10px_rgba(0,242,254,0.5)]" />
-                                        Luke Chiang
-                                    </span>
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-brand-purple/50 shadow-[0_0_10px_rgba(79,172,254,0.5)]" />
-                                        Emotional Oranges
-                                    </span>
-                                    <span className="text-white/40 font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
-                                        <div className="w-2 h-2 rounded-full bg-indigo-500/50 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                                        Galdive
-                                    </span>
+                        {/* 
+                            Using w-max ensures the track only takes up as much space as the text needs.
+                            By duplicating the track twice, the -50% translateX animationloops perfectly across all screen sizes. 
+                        */}
+                        <div className="flex animate-marquee w-max hover:animation-play-state-paused">
+                            {/* Duplicate content 2 times to make the loop seamless */}
+                            {[0, 1].map((copyIndex) => (
+                                <div key={copyIndex} className="flex gap-12 sm:gap-20 px-6 sm:px-10 items-center">
+                                    {shuffledArtists.map((artist, idx) => (
+                                        <span key={`${copyIndex}-${idx}`} className="text-white/40 whitespace-nowrap font-display font-medium text-lg sm:text-2xl tracking-wide flex items-center gap-3">
+                                            <div
+                                                className="w-2 h-2 rounded-full opacity-70"
+                                                style={{
+                                                    backgroundColor: artist.color,
+                                                    boxShadow: `0 0 12px ${artist.color}`
+                                                }}
+                                            />
+                                            {artist.name}
+                                        </span>
+                                    ))}
                                 </div>
                             ))}
                         </div>

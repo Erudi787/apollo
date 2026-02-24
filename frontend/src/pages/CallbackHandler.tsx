@@ -11,7 +11,7 @@ export default function CallbackHandler() {
             // After Spotify redirects here, our backend has already set
             // the cookies. We just need to verify auth and redirect.
             await checkAuth()
-            navigate('/', { replace: true })
+            navigate('/dashboard', { replace: true })
         }
 
         handleCallback()
