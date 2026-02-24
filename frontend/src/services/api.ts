@@ -75,6 +75,8 @@ export const moodAPI = {
         api.post<RecommendationResponse>('/api/mood-recommendations', data),
     searchPlaylists: (mood: string, limit: number = 10) =>
         api.get('/api/playlists/search', { params: { mood, limit } }),
+    getPlaylistTracks: (playlistId: string) =>
+        api.get<{ tracks: SpotifyTrack[]; total: number }>(`/api/playlists/${playlistId}/tracks`),
 };
 
 export const playlistAPI = {

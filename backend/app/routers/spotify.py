@@ -494,10 +494,10 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20):
 async def search_playlists(request: Request, mood: str, limit: int = 10):
     access_token = _get_token_or_error(request)
     if not access_token:
-        return {"error": "Not authenticated"}
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
     if mood not in MOOD_PROFILES:
-        return {"error": f"Invalid mood. Choose from: {list(MOOD_PROFILES.keys())}"}
+        return JSONResponse({"error": f"Invalid mood. Choose from: {list(MOOD_PROFILES.keys())}"}, status_code=400)
 
     mood_profile = MOOD_PROFILES[mood]
 
@@ -517,10 +517,12 @@ async def search_playlists(request: Request, mood: str, limit: int = 10):
     except httpx.HTTPStatusError as e:
         return {"error": "Failed to search playlists", "details": str(e)}
 
+    playlists = [p for p in search_data.get("playlists", {}).get("items", []) if p and p.get("id")]
+
     return {
         "mood": mood,
         "description": mood_profile["description"],
-        "playlists": search_data.get("playlists", {}).get("items", []),
+        "playlists": playlists,
     }
 
 
@@ -595,9 +597,6 @@ async def mood_recommendations(request: Request):
     }
 
 
-# ============================================================
-# Playlist Creation
-# ============================================================
 
 @router.post("/playlists/create")
 async def create_playlist(request: Request):
@@ -670,3 +669,27 @@ async def create_playlist(request: Request):
         "external_urls": playlist.get("external_urls", {}),
         "tracks_added": len(track_uris),
     }
+
+
+# Dynamic path-param route must come AFTER static /playlists/search and /playlists/create
+@router.get("/playlists/{playlist_id}/tracks")
+async def get_playlist_tracks(request: Request, playlist_id: str, limit: int = 50):
+    """Fetch tracks from a specific Spotify playlist."""
+    access_token = _get_token_or_error(request)
+    if not access_token:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    url = f"https://api.spotify.com/v1/playlists/{playlist_id}/tracks"
+    params = {"limit": min(limit, 100), "fields": "items(track(id,name,uri,preview_url,duration_ms,artists(id,name,external_urls),album(id,name,images,release_date),external_urls)),total"}
+
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(url, headers=_auth_header(access_token), params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPStatusError as e:
+        return JSONResponse({"error": "Failed to fetch playlist tracks", "details": str(e)}, status_code=500)
+
+    tracks = [item["track"] for item in data.get("items", []) if item.get("track")]
+    return {"tracks": tracks, "total": data.get("total", len(tracks))}
+
