@@ -104,7 +104,7 @@ export default function LoginPage() {
                         transition={{ duration: 0.3, ease: 'easeInOut' }}
                         className="fixed top-0 left-0 right-0 z-50 true-glass border-b border-white/5 px-6 py-4 flex justify-between items-center"
                     >
-                        <div className="font-display font-bold text-xl tracking-tight text-white flex items-center gap-2">
+                        <div className="font-display font-bold text-xl tracking-tight text-white flex items-center">
                             <span className="text-brand-cyan">AI.</span>pollo
                         </div>
                         {user ? (
