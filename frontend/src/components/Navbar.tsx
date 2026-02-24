@@ -1,36 +1,24 @@
+import { Link } from 'react-router'
 import { useAuth } from '../hooks/useAuth'
-import { Sun, Moon, LogOut } from 'lucide-react'
-import { useContext } from 'react'
-import { ThemeContext } from '../context/ThemeContext'
+import { LogOut } from 'lucide-react'
 
 export default function Navbar() {
     const { user, logout } = useAuth()
-    const { isDark, toggleTheme } = useContext(ThemeContext)
 
     return (
         <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/50 dark:border-slate-800/50">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
                     {/* Logo */}
-                    <div className="flex items-center gap-3">
-                        <span className="text-2xl">𓏢</span>
-                        <span className="text-xl font-bold gradient-text">AI.pollo</span>
-                    </div>
+                    <Link to="/">
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl">𓏢</span>
+                            <span className="text-xl font-bold gradient-text">AI.pollo</span>
+                        </div>
+                    </Link>
 
                     {/* Right Side */}
                     <div className="flex items-center gap-3">
-                        {/* Theme Toggle */}
-                        <button
-                            onClick={toggleTheme}
-                            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                            aria-label="Toggle theme"
-                        >
-                            {isDark ? (
-                                <Sun size={20} className="text-amber-400" />
-                            ) : (
-                                <Moon size={20} className="text-slate-600" />
-                            )}
-                        </button>
 
                         {/* User Profile */}
                         {user && (

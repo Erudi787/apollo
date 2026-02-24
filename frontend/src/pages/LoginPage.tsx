@@ -2,7 +2,7 @@ import { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
-import { LogOut } from 'lucide-react'
+import { ArrowUp, LogOut } from 'lucide-react'
 
 export default function LoginPage() {
     const { user, login, logout } = useAuth()
@@ -155,6 +155,23 @@ export default function LoginPage() {
                 )}
             </AnimatePresence>
 
+            {/* Scroll-to-Top FAB (appears with sticky header) */}
+            <AnimatePresence>
+                {scrolled && (
+                    <motion.button
+                        initial={{ y: 100, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 100, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                        className="fixed bottom-8 right-8 z-50 p-4 rounded-full true-glass border border-white text-white/80 hover:text-white shadow-2xl hover:scale-110 active:scale-95 transition-all group"
+                        aria-label="Scroll to top"
+                    >
+                        <ArrowUp className="w-6 h-6 group-hover:-translate-y-1 transition-transform" />
+                    </motion.button>
+                )}
+            </AnimatePresence>
+
             {/* Animated Liquid Aura Mesh Background (Fixed pos so it stays during scroll) */}
             <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
                 <div className="absolute top-[-20%] left-[-10%] w-[70vw] h-[70vw] bg-brand-cyan/20 rounded-full blur-[120px] mix-blend-screen animate-mesh-1" />
@@ -206,7 +223,7 @@ export default function LoginPage() {
                             Main Character
                         </motion.div>
 
-                        <h1 className="font-display text-[5rem] sm:text-[8rem] md:text-[10rem] font-black leading-[0.85] tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/40 pb-4 relative z-10">
+                        <h1 className="font-display text-[5rem] sm:text-[8rem] md:text-[10rem] font-black leading-[0.85] tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-white via-white to-white/40 pb-4 pr-4 sm:pr-8 relative z-10">
                             AI.pollo
                         </h1>
                     </motion.div>
@@ -301,10 +318,10 @@ export default function LoginPage() {
                     <div className="flex-1 space-y-6 lg:pl-8">
                         <div className="inline-block px-3 py-1 true-glass rounded-full text-brand-cyan text-xs font-bold tracking-wide uppercase mb-2">The Experience</div>
                         <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
-                            Vibe-Based Discovery
+                            Discover & Create
                         </h2>
                         <p className="text-lg sm:text-xl text-white/60 leading-relaxed font-light">
-                            AI.pollo isn't just another generic playlist generator. It's an intelligent mood engine that understands the nuanced feelings behind the music you love. Whether you're feeling energetic, nostalgic, or searching for a late-night sensual vibe, AI.pollo curates the perfect soundtrack based on your exact wavelength.
+                            AI.pollo isn't just an infinite radio station. It's an intelligent music engine designed for absolute discovery. Whether you're feeling energetic, nostalgic, or searching for a late-night sensual vibe, AI.pollo unearths hidden gems and allows you to instantly compile them into permanent, bespoke Spotify playlists with a single click.
                         </p>
                     </div>
                     <div className="flex-1 w-full aspect-square sm:aspect-[4/3] true-glass-strong rounded-[2.5rem] border border-white/5 flex items-center justify-center p-8 relative overflow-hidden group">
@@ -347,8 +364,8 @@ export default function LoginPage() {
                             <li className="flex gap-5 group">
                                 <div className="w-14 h-14 rounded-2xl true-glass flex items-center justify-center flex-shrink-0 text-indigo-400 font-bold text-xl border border-white/5 transition-transform group-hover:scale-110">3</div>
                                 <div>
-                                    <h3 className="text-xl sm:text-2xl font-semibold mb-2 text-white/90">Experience the Magic</h3>
-                                    <p className="text-white/50 font-light text-lg">Our lightning-fast parallel search engine builds a completely custom, deduplicated playlist tailored specifically to you—ready to play or save.</p>
+                                    <h3 className="text-xl sm:text-2xl font-semibold mb-2 text-white/90">Curate & Save to Spotify</h3>
+                                    <p className="text-white/50 font-light text-lg">Swipe through your custom recommendations, curate your favorites in the interactive player, and instantly export the entire collection directly to your Spotify library as a brand-new playlist.</p>
                                 </div>
                             </li>
                         </ul>

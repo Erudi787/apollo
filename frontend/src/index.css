@@ -48,6 +48,33 @@ body {
 }
 
 /* -------------------------------------------------------------------------- */
+/* Custom Scrollbar */
+/* -------------------------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 242, 254, 0.4);
+  /* brand-cyan but translucent */
+  border-radius: 10px;
+  border: 2px solid #000000;
+  /* Creates an inset look */
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(0, 241, 254, 0.671) 0%, rgba(0, 255, 191, 0.644) 100%);
+  /* cyan to purple glow */
+  border: 1px solid #000000;
+  /* makes it look a bit thicker when grabbing */
+}
+
+/* -------------------------------------------------------------------------- */
 /* Component Classes: True Glassmorphism (No borders, pure depth)             */
 /* -------------------------------------------------------------------------- */
 

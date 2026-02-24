@@ -112,7 +112,7 @@ async def callback(request: Request, code: str, state: str):
     tokens = resp.json()
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    response = RedirectResponse(url=frontend_url)
+    response = RedirectResponse(url=f"{frontend_url}/callback")
 
     response.set_cookie(
         key="access_token",

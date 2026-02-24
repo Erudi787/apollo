@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { RefreshCw } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import MoodSelector from '../components/MoodSelector'
 import PlaylistGrid from '../components/PlaylistGrid'
@@ -134,6 +135,26 @@ export default function Dashboard() {
             setError('Failed to find playlists. Please try again.')
         } finally {
             setDiscoverLoading(false)
+        }
+    }
+
+    const handleRefresh = async () => {
+        if (!selectedMood) return
+        if (activeTab === 'recommendations') {
+            handleMoodSelect(selectedMood)
+        } else {
+            setDiscoverLoading(true)
+            setDiscoveredPlaylists([])
+            try {
+                const { data } = await moodAPI.searchPlaylists(selectedMood, 12)
+                const validPlaylists = (data.playlists || []).filter((p: SpotifyPlaylist) => p && p.id)
+                setDiscoveredPlaylists(validPlaylists)
+            } catch (err) {
+                console.error('Failed to discover playlists:', err)
+                setError('Failed to refresh playlists. Please try again.')
+            } finally {
+                setDiscoverLoading(false)
+            }
         }
     }
 
@@ -284,29 +305,42 @@ export default function Dashboard() {
                                                         )}
                                                     </div>
 
-                                                    {/* Tab switcher */}
-                                                    <div className="flex gap-1 true-glass rounded-2xl p-1.5 w-fit">
+                                                    {/* Controls Row: Tab Switcher + Refresh */}
+                                                    <div className="flex items-center gap-3">
+                                                        {/* Tab switcher */}
+                                                        <div className="flex gap-1 true-glass rounded-2xl p-1.5 w-fit">
+                                                            <button
+                                                                onClick={() => setActiveTab('recommendations')}
+                                                                className={cn(
+                                                                    "px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all",
+                                                                    activeTab === 'recommendations'
+                                                                        ? "bg-white/10 text-white shadow-lg"
+                                                                        : "text-white/40 hover:text-white/70"
+                                                                )}
+                                                            >
+                                                                For You
+                                                            </button>
+                                                            <button
+                                                                onClick={handleDiscoverTab}
+                                                                className={cn(
+                                                                    "px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all",
+                                                                    activeTab === 'discover'
+                                                                        ? "bg-white/10 text-white shadow-lg"
+                                                                        : "text-white/40 hover:text-white/70"
+                                                                )}
+                                                            >
+                                                                Discover
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Refresh Button */}
                                                         <button
-                                                            onClick={() => setActiveTab('recommendations')}
-                                                            className={cn(
-                                                                "px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all",
-                                                                activeTab === 'recommendations'
-                                                                    ? "bg-white/10 text-white shadow-lg"
-                                                                    : "text-white/40 hover:text-white/70"
-                                                            )}
+                                                            onClick={handleRefresh}
+                                                            disabled={loading || discoverLoading}
+                                                            className="p-3 rounded-2xl true-glass hover:bg-white/10 text-white/50 hover:text-white transition-all disabled:opacity-50"
+                                                            aria-label="Refresh Recommendations"
                                                         >
-                                                            For You
-                                                        </button>
-                                                        <button
-                                                            onClick={handleDiscoverTab}
-                                                            className={cn(
-                                                                "px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all",
-                                                                activeTab === 'discover'
-                                                                    ? "bg-white/10 text-white shadow-lg"
-                                                                    : "text-white/40 hover:text-white/70"
-                                                            )}
-                                                        >
-                                                            Discover
+                                                            <RefreshCw className={cn("w-5 h-5", (loading || discoverLoading) && "animate-spin")} />
                                                         </button>
                                                     </div>
                                                 </motion.div>
