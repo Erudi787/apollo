@@ -5,14 +5,12 @@ import httpx
 import base64
 import secrets
 import time
+import hmac
+import hashlib
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 
 load_dotenv()
-
-# In-memory store for pending OAuth states (avoids cross-domain cookie issues with ngrok)
-# Maps state_token -> expiry_timestamp
-_pending_states: dict[str, float] = {}
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -35,6 +33,45 @@ def _get_auth_header() -> str:
     """Return Base64-encoded client credentials for Spotify token requests."""
     credentials = f"{spotify_client_id}:{spotify_client_secret}"
     return base64.b64encode(credentials.encode()).decode()
+
+
+def _create_signed_state() -> str:
+    """Create an HMAC-signed state token (stateless — works on serverless).
+    
+    Format: {timestamp}.{nonce}.{signature}
+    """
+    timestamp = str(int(time.time()))
+    nonce = secrets.token_urlsafe(8)
+    payload = f"{timestamp}.{nonce}"
+    signature = hmac.new(
+        (spotify_client_secret or "fallback").encode(),
+        payload.encode(),
+        hashlib.sha256,
+    ).hexdigest()[:16]
+    return f"{payload}.{signature}"
+
+
+def _verify_signed_state(state: str) -> bool:
+    """Verify an HMAC-signed state token."""
+    try:
+        parts = state.split(".")
+        if len(parts) != 3:
+            return False
+        timestamp, nonce, signature = parts
+        payload = f"{timestamp}.{nonce}"
+        expected = hmac.new(
+            (spotify_client_secret or "fallback").encode(),
+            payload.encode(),
+            hashlib.sha256,
+        ).hexdigest()[:16]
+        if not hmac.compare_digest(signature, expected):
+            return False
+        # Verify expiry (10 minutes)
+        if time.time() - int(timestamp) > 600:
+            return False
+        return True
+    except Exception:
+        return False
 
 
 async def _fetch_spotify_profile(access_token: str) -> dict | None:
@@ -64,14 +101,7 @@ async def _fetch_spotify_profile(access_token: str) -> dict | None:
 @router.get("/login")
 def login():
     """Redirect the user to Spotify's authorization page."""
-    # Prune expired states
-    now = time.time()
-    expired = [k for k, v in _pending_states.items() if v < now]
-    for k in expired:
-        del _pending_states[k]
-
-    state = secrets.token_urlsafe(16)
-    _pending_states[state] = now + 600  # valid for 10 minutes
+    state = _create_signed_state()
 
     params = {
         "client_id": spotify_client_id,
@@ -87,9 +117,8 @@ def login():
 @router.get("/callback")
 async def callback(request: Request, code: str, state: str):
     """Handle the Spotify OAuth callback — exchange code for tokens."""
-    # Verify CSRF state from in-memory store
-    expiry = _pending_states.pop(state, None)
-    if expiry is None or time.time() > expiry:
+    # Verify CSRF state using HMAC signature (stateless — works on serverless)
+    if not _verify_signed_state(state):
         return {"error": "State mismatch — possible CSRF attack"}
 
     data = {
@@ -111,22 +140,7 @@ async def callback(request: Request, code: str, state: str):
 
     tokens = resp.json()
 
-    frontend_url = os.getenv("FRONTEND_URL")
-    if not frontend_url:
-        # Fallback to the requested host (Vercel) or localhost:5173 for local dev 
-        host = request.headers.get("x-forwarded-host", request.url.netloc)
-        scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-        is_vercel = os.getenv("VERCEL") == "1"
-        if is_vercel:
-            # We are on Vercel but missing FRONTEND_URL. 
-            # We must use x-forwarded-host as the definitive source of truth, ignoring any localhost proxies.
-            host = request.headers.get("x-forwarded-host", request.url.netloc)
-            scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-            frontend_url = f"{scheme}://{host}"
-        else:
-            # Local development fallback
-            frontend_url = f"{scheme}://{host}"
-            
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
     response = RedirectResponse(url=f"{frontend_url}/callback")
 
     response.set_cookie(
