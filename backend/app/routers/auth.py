@@ -111,7 +111,16 @@ async def callback(request: Request, code: str, state: str):
 
     tokens = resp.json()
 
-    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    frontend_url = os.getenv("FRONTEND_URL")
+    if not frontend_url:
+        # Fallback to the requested host (Vercel) or localhost:5173 for local dev 
+        host = request.url.netloc
+        scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+        if "localhost" in host or "127.0.0.1" in host:
+            frontend_url = "http://localhost:5173"
+        else:
+            frontend_url = f"{scheme}://{host}"
+            
     response = RedirectResponse(url=f"{frontend_url}/callback")
 
     response.set_cookie(
