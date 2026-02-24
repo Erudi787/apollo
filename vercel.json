@@ -1,0 +1,46 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "backend/app/main.py",
+            "use": "@vercel/python"
+        },
+        {
+            "src": "frontend/package.json",
+            "use": "@vercel/static-build",
+            "config": {
+                "distDir": "dist"
+            }
+        }
+    ],
+    "rewrites": [
+        {
+            "source": "/api/(.*)",
+            "destination": "/backend/app/main.py"
+        },
+        {
+            "source": "/auth/(.*)",
+            "destination": "/backend/app/main.py"
+        },
+        {
+            "source": "/docs",
+            "destination": "/backend/app/main.py"
+        },
+        {
+            "source": "/openapi.json(.*)",
+            "destination": "/backend/app/main.py"
+        },
+        {
+            "source": "/assets/(.*)",
+            "destination": "/frontend/assets/$1"
+        },
+        {
+            "source": "/(.*)\\.(png|jpg|jpeg|gif|svg|ico|webp|ttf|woff|woff2)$",
+            "destination": "/frontend/$1.$2"
+        },
+        {
+            "source": "/(.*)",
+            "destination": "/frontend/index.html"
+        }
+    ]
+}
