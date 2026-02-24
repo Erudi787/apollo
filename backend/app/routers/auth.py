@@ -116,9 +116,15 @@ async def callback(request: Request, code: str, state: str):
         # Fallback to the requested host (Vercel) or localhost:5173 for local dev 
         host = request.headers.get("x-forwarded-host", request.url.netloc)
         scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
-        if "localhost" in host or "127.0.0.1" in host:
-            frontend_url = "http://localhost:5173"
+        is_vercel = os.getenv("VERCEL") == "1"
+        if is_vercel:
+            # We are on Vercel but missing FRONTEND_URL. 
+            # We must use x-forwarded-host as the definitive source of truth, ignoring any localhost proxies.
+            host = request.headers.get("x-forwarded-host", request.url.netloc)
+            scheme = request.headers.get("x-forwarded-proto", request.url.scheme)
+            frontend_url = f"{scheme}://{host}"
         else:
+            # Local development fallback
             frontend_url = f"{scheme}://{host}"
             
     response = RedirectResponse(url=f"{frontend_url}/callback")
