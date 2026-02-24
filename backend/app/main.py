@@ -1,13 +1,15 @@
 import sys
 from pathlib import Path
+
+# Must be BEFORE any `from app.*` imports so Vercel serverless can resolve the package
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.routers import auth, spotify
 import os
 import uvicorn
-
-sys.path.append(str(Path(__file__).parent.parent))
 
 load_dotenv()
 
