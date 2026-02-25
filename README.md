@@ -1,4 +1,4 @@
-# 🎧 Apollo
+# 🎧 AI.pollo
 
 An AI-powered mood-based music playlist recommender using the Spotify API. Built with a React/Vite frontend and a FastAPI (serverless) backend deployed on Vercel. The app analyzes user moods manually or via text input and generates personalized Spotify recommendations leveraging a custom Curated Intersect Algorithm based on listening history and curated Spotify playlists.
 
