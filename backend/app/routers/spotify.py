@@ -473,8 +473,10 @@ async def search_playlists(request: Request, mood: str, limit: int = 10):
 
     mood_profile = MOOD_PROFILES[mood]
 
-    # BUG FIX: was `split(','[0])` — index on string literal, not split result
-    search_query = f"{mood} {mood_profile['description'].split(',')[0]}"
+    # Updated: Now uses vibe-based search instead of strict literal mood names
+    mood_keyword = mood_profile.get("search_descriptors", [""])[0]
+    mood_genre = mood_profile.get("genres", [""])[0]
+    search_query = f"{mood_keyword} {mood_genre}".strip()
 
     search_url = "https://api.spotify.com/v1/search"
     params = {"q": search_query, "type": "playlist", "limit": limit}

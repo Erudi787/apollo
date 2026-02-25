@@ -52,6 +52,7 @@ export default function Dashboard() {
     // Save state
     const [saving, setSaving] = useState(false)
     const [savedLink, setSavedLink] = useState<string | null>(null)
+    const [playlistName, setPlaylistName] = useState<string>('')
 
     const handleMoodSelect = async (mood: string) => {
         setSelectedMood(mood)
@@ -60,6 +61,7 @@ export default function Dashboard() {
         setActiveTab('recommendations')
         setSavedLink(null)
         setDiscoveredPlaylists([])
+        setPlaylistName(`AI.pollo · ${mood.charAt(0).toUpperCase() + mood.slice(1)} Vibes`)
 
         try {
             const { data } = await moodAPI.getRecommendations(mood, 24)
@@ -86,6 +88,7 @@ export default function Dashboard() {
             setSelectedMood(data.mood)
             setMoodDescription(data.description)
             setTracks(data.tracks)
+            setPlaylistName(`AI.pollo · ${data.mood.charAt(0).toUpperCase() + data.mood.slice(1)} Vibes`)
         } catch (err) {
             console.error('Failed to analyze mood:', err)
             setError('Could not analyze your mood. Try selecting one manually.')
@@ -104,10 +107,10 @@ export default function Dashboard() {
                 .map(t => t.uri)
                 .filter(Boolean)
 
-            const name = `AI.pollo · ${selectedMood.charAt(0).toUpperCase() + selectedMood.slice(1)} Vibes`
+            const finalName = playlistName.trim() || `AI.pollo · ${selectedMood.charAt(0).toUpperCase() + selectedMood.slice(1)} Vibes`
             const description = `Curated by AI.pollo based on your ${selectedMood} mood. ${moodDescription}`
 
-            const { data } = await playlistAPI.create(name, trackUris, description, true)
+            const { data } = await playlistAPI.create(finalName, trackUris, description, true)
             setSavedLink(data.external_urls?.spotify || null)
         } catch (err) {
             console.error('Failed to save playlist:', err)
@@ -281,25 +284,34 @@ export default function Dashboard() {
                                                                         Open in Spotify ✓
                                                                     </a>
                                                                 ) : (
-                                                                    <button
-                                                                        onClick={handleSavePlaylist}
-                                                                        disabled={saving}
-                                                                        className="inline-flex items-center gap-2.5 px-6 py-3 rounded-full true-glass hover:bg-white/10 transition-all font-display font-bold text-sm tracking-wide text-white/80 hover:text-white disabled:opacity-50 hover:scale-105 active:scale-95"
-                                                                    >
-                                                                        {saving ? (
-                                                                            <>
-                                                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                                                Saving...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                                                    <path d="M12 5v14M5 12h14" strokeLinecap="round" />
-                                                                                </svg>
-                                                                                Save to Spotify
-                                                                            </>
-                                                                        )}
-                                                                    </button>
+                                                                    <div className="flex flex-col sm:flex-row items-center gap-3">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={playlistName}
+                                                                            onChange={(e) => setPlaylistName(e.target.value)}
+                                                                            placeholder="Name your playlist..."
+                                                                            className="w-full sm:w-64 px-4 py-3 rounded-full true-glass bg-white/5 border border-white/10 text-white/90 placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all font-display text-sm tracking-wide"
+                                                                        />
+                                                                        <button
+                                                                            onClick={handleSavePlaylist}
+                                                                            disabled={saving || !playlistName.trim()}
+                                                                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3 rounded-full true-glass hover:bg-white/10 transition-all font-display font-bold text-sm tracking-wide text-white/80 hover:text-white disabled:opacity-50 hover:scale-105 active:scale-95 whitespace-nowrap"
+                                                                        >
+                                                                            {saving ? (
+                                                                                <>
+                                                                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                                                                    Saving...
+                                                                                </>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                                                        <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                                                                                    </svg>
+                                                                                    Save to Spotify
+                                                                                </>
+                                                                            )}
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                             </motion.div>
                                                         )}
