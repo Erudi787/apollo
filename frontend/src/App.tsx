@@ -3,6 +3,8 @@ import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import CallbackHandler from './pages/CallbackHandler'
 import Dashboard from './pages/Dashboard'
+import HistoryPage from './pages/HistoryPage'
+import SocialPage from './pages/SocialPage'
 
 function App() {
   const { user, loading } = useAuth()
@@ -31,6 +33,14 @@ function App() {
       <Route
         path="/dashboard"
         element={user ? <Dashboard /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/history"
+        element={user ? <HistoryPage /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/social"
+        element={user ? <SocialPage /> : <Navigate to="/" replace />}
       />
       <Route
         path="/login"

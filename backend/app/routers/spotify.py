@@ -1,5 +1,9 @@
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app import models
+import json
 import httpx
 import asyncio
 import random
@@ -21,6 +25,17 @@ def _auth_header(access_token: str) -> dict:
 
 def _get_token_or_error(request: Request) -> str | None:
     return request.cookies.get("access_token")
+
+async def _get_current_user_id(access_token: str) -> str | None:
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://api.spotify.com/v1/me", headers=_auth_header(access_token)
+            )
+            resp.raise_for_status()
+            return resp.json()["id"]
+    except Exception:
+        return None
 
 
 async def _fetch_top_tracks(access_token: str, time_range: str = "short_term", limit: int = 10) -> list[dict]:
@@ -414,7 +429,7 @@ async def get_moods():
 
 
 @router.get("/recommendations")
-async def get_recommendations(request: Request, mood: str, limit: int = 20):
+async def get_recommendations(request: Request, mood: str, limit: int = 20, db: Session = Depends(get_db)):
     access_token = _get_token_or_error(request)
     if not access_token:
         return {"error": "Not authenticated"}
@@ -428,6 +443,17 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20):
         tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
+
+    user_id = await _get_current_user_id(access_token)
+    if user_id:
+        track_preview = json.dumps([{"id": t["id"], "name": t["name"], "artists": [a.get("name") for a in t.get("artists", [])], "album_image": t.get("album", {}).get("images", [{}])[0].get("url") if t.get("album", {}).get("images") else None} for t in tracks])
+        entry = models.MoodEntry(
+            user_id=user_id,
+            mood_name=mood,
+            tracks_preview_json=track_preview
+        )
+        db.add(entry)
+        db.commit()
 
     return {
         "mood": mood,
@@ -503,7 +529,7 @@ async def analyze_mood(request: Request):
 
 
 @router.post("/mood-recommendations")
-async def mood_recommendations(request: Request):
+async def mood_recommendations(request: Request, db: Session = Depends(get_db)):
     access_token = _get_token_or_error(request)
     if not access_token:
         return {"error": "Not authenticated"}
@@ -535,6 +561,17 @@ async def mood_recommendations(request: Request):
         tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
+
+    user_id = await _get_current_user_id(access_token)
+    if user_id:
+        track_preview = json.dumps([{"id": t["id"], "name": t["name"], "artists": [a.get("name") for a in t.get("artists", [])], "album_image": t.get("album", {}).get("images", [{}])[0].get("url") if t.get("album", {}).get("images") else None} for t in tracks])
+        entry = models.MoodEntry(
+            user_id=user_id,
+            mood_name=mood,
+            tracks_preview_json=track_preview
+        )
+        db.add(entry)
+        db.commit()
 
     return {
         "mood": mood,

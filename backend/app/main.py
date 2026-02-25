@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from app.routers import auth, spotify
+from app.routers import auth, spotify, history, social
 import os
 import uvicorn
 
@@ -52,6 +52,8 @@ async def root():
 # Routers
 app.include_router(auth.router)
 app.include_router(spotify.router)
+app.include_router(history.router)
+app.include_router(social.router)
 
 if __name__ == "__main__":
     uvicorn.run(

@@ -1,5 +1,8 @@
-from fastapi import APIRouter, Response, Request
+from fastapi import APIRouter, Response, Request, Depends
 from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app import models
 import os
 import httpx
 import base64
@@ -165,7 +168,7 @@ async def callback(request: Request, code: str, state: str):
 
 
 @router.get("/status")
-async def auth_status(request: Request):
+async def auth_status(request: Request, db: Session = Depends(get_db)):
     """Check if the user is authenticated and return their profile."""
     access_token = request.cookies.get("access_token")
 
@@ -175,6 +178,7 @@ async def auth_status(request: Request):
     user = await _fetch_spotify_profile(access_token)
 
     if user:
+        _upsert_user(db, user)
         return {"authenticated": True, "user": user}
 
     # Token might be expired — try refresh
@@ -191,9 +195,26 @@ async def auth_status(request: Request):
     if not user:
         return {"authenticated": False}
 
+    _upsert_user(db, user)
+
     # We can't set cookies on this response easily without a Response object,
     # but the frontend interceptor will handle refresh via /auth/refresh
     return {"authenticated": True, "user": user}
+
+def _upsert_user(db: Session, user_data: dict):
+    db_user = db.query(models.User).filter(models.User.id == user_data["id"]).first()
+    image_url = user_data["images"][0]["url"] if user_data.get("images") else None
+    if not db_user:
+        db_user = models.User(
+            id=user_data["id"],
+            display_name=user_data.get("display_name"),
+            image_url=image_url
+        )
+        db.add(db_user)
+    else:
+        db_user.display_name = user_data.get("display_name")
+        db_user.image_url = image_url
+    db.commit()
 
 
 @router.post("/logout")

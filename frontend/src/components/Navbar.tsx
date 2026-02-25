@@ -1,9 +1,10 @@
-import { Link } from 'react-router'
+import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { LogOut } from 'lucide-react'
 
 export default function Navbar() {
     const { user, logout } = useAuth()
+    const location = useLocation()
 
     return (
         <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 dark:bg-slate-950/80 border-b border-slate-200/50 dark:border-slate-800/50">
@@ -16,6 +17,15 @@ export default function Navbar() {
                             <span className="text-xl font-bold gradient-text">AI.pollo</span>
                         </div>
                     </Link>
+
+                    {/* Navigation */}
+                    {user && (
+                        <div className="hidden md:flex items-center gap-6 ml-8">
+                            <Link to="/dashboard" className={`font-medium transition-colors ${location.pathname === '/dashboard' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>Dashboard</Link>
+                            <Link to="/history" className={`font-medium transition-colors ${location.pathname === '/history' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>History</Link>
+                            <Link to="/social" className={`font-medium transition-colors ${location.pathname === '/social' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>Social</Link>
+                        </div>
+                    )}
 
                     {/* Right Side */}
                     <div className="flex items-center gap-3">
