@@ -158,3 +158,6 @@ certs/
 
 .claude
 docs/
+
+# Local Database Changes
+backend/apollo.db
