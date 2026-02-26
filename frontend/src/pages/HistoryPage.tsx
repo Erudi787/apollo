@@ -39,19 +39,36 @@ export default function HistoryPage() {
             <main className="max-w-7xl mx-auto px-4 py-8">
                 <h1 className="text-3xl font-bold mb-8 text-slate-800 dark:text-white">Your Mood History</h1>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 rounded-2xl">
-                        <h2 className="text-xl font-semibold mb-4 text-slate-700 dark:text-slate-200">Overall Mood Distribution</h2>
-                        <div className="h-64">
+                <div className="max-w-2xl mx-auto mb-12">
+                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 rounded-2xl flex flex-col items-center">
+                        <h2 className="text-xl font-semibold mb-6 text-slate-700 dark:text-slate-200">Overall Mood Distribution</h2>
+                        <div className="h-80 w-full">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
-                                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                    <Pie
+                                        data={pieData}
+                                        cx="50%"
+                                        cy="45%"
+                                        innerRadius={70}
+                                        outerRadius={100}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        stroke="none"
+                                    >
                                         {pieData.map((_, index) => (
                                             <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                                         ))}
                                     </Pie>
-                                    <Tooltip />
-                                    <Legend />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '12px', border: 'none', background: 'rgba(15, 23, 42, 0.9)', color: '#fff', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.5)' }}
+                                        itemStyle={{ color: '#e2e8f0', fontWeight: 'bold' }}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        align="center"
+                                        iconType="circle"
+                                        wrapperStyle={{ paddingTop: '20px' }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
