@@ -14,7 +14,7 @@ async def get_mood_timeline(request: Request, db: Session = Depends(get_db), day
     if not access_token:
         return {"error": "Not authenticated"}
         
-    user_id = await _get_current_user_id(access_token)
+    user_id = await _get_current_user_id(access_token, db)
     if not user_id:
         return {"error": "Could not identify user"}
 

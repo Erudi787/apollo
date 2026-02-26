@@ -1,14 +1,22 @@
 import { useEffect, useState } from 'react'
 import Navbar from '../components/Navbar'
 import api from '../services/api'
-import { motion } from 'framer-motion'
-import { Search, UserPlus } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Search, UserPlus, CheckCircle2, XCircle } from 'lucide-react'
 
 export default function SocialPage() {
     const [feed, setFeed] = useState<any[]>([])
     const [searchQuery, setSearchQuery] = useState('')
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 3000)
+            return () => clearTimeout(timer)
+        }
+    }, [toast])
 
     useEffect(() => {
         fetchFeed()
@@ -36,19 +44,46 @@ export default function SocialPage() {
         }
     }
 
-    const handleFollow = async (userId: string) => {
+    const handleFollow = async (userId: string, userName: string) => {
         try {
             await api.post(`/api/social/follow/${userId}`)
-            alert('Followed successfully!')
+
+            // Show success toast instead of alert
+            setToast({ message: `Successfully followed ${userName}!`, type: 'success' })
+
+            // Auto-refresh logic
             fetchFeed()
+            setSearchQuery('')
+            setSearchResults([])
         } catch (err) {
             console.error(err)
+            setToast({ message: `Failed to follow user.`, type: 'error' })
         }
     }
 
     return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-900 relative">
             <Navbar />
+
+            {/* Custom Toast Notification */}
+            <AnimatePresence>
+                {toast && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.9 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                        className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 rounded-full shadow-lg ${toast.type === 'success'
+                            ? 'bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/30 font-semibold'
+                            : 'bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/30 font-semibold'
+                            }`}
+                        style={{ backdropFilter: 'blur(12px)' }}
+                    >
+                        {toast.type === 'success' ? <CheckCircle2 size={20} /> : <XCircle size={20} />}
+                        <span>{toast.message}</span>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
             <main className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
 
                 {/* Main Feed */}
@@ -107,7 +142,7 @@ export default function SocialPage() {
                                         {u.image_url ? <img src={u.image_url} className="w-8 h-8 rounded-full" /> : <div className="w-8 h-8 rounded-full bg-slate-500" />}
                                         <p className="font-medium text-slate-800 dark:text-white">{u.display_name}</p>
                                     </div>
-                                    <button onClick={() => handleFollow(u.id)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg">
+                                    <button onClick={() => handleFollow(u.id, u.display_name)} className="p-1.5 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg">
                                         <UserPlus size={18} />
                                     </button>
                                 </div>

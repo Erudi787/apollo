@@ -34,15 +34,33 @@ def _get_token_or_error(request: Request) -> str | None:
     # Fallback to cookies
     return request.cookies.get("access_token")
 
-async def _get_current_user_id(access_token: str) -> str | None:
+async def _get_current_user_id(access_token: str, db: Session = None) -> str | None:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
                 "https://api.spotify.com/v1/me", headers=_auth_header(access_token)
             )
             resp.raise_for_status()
-            return resp.json()["id"]
-    except Exception:
+            user_data = resp.json()
+            user_id = user_data["id"]
+            
+            # Auto-register user into database to prevent foreign key Null errors on History/Social data
+            if db:
+                db_user = db.query(models.User).filter(models.User.id == user_id).first()
+                if not db_user:
+                    image_url = user_data["images"][0]["url"] if user_data.get("images") else None
+                    new_user = models.User(
+                        id=user_id,
+                        display_name=user_data.get("display_name"),
+                        image_url=image_url
+                    )
+                    db.add(new_user)
+                    db.commit()
+                    print(f"[AI.pollo] Auto-registered new user: {user_data.get('display_name')}")
+            
+            return user_id
+    except Exception as e:
+        print(f"[AI.pollo] Error fetching user profile: {e}")
         return None
 
 
@@ -203,7 +221,7 @@ async def _get_personalized_recommendations(
     t_start = time.time()
 
     # Step 0: Get User ID & fetch their explicit ML Feedback history
-    user_id = await _get_current_user_id(access_token)
+    user_id = await _get_current_user_id(access_token, db)
     liked_tracks = set()
     disliked_tracks = set()
     liked_artists = set()
@@ -481,7 +499,7 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20, db: 
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 
-    user_id = await _get_current_user_id(access_token)
+    user_id = await _get_current_user_id(access_token, db)
     if user_id:
         track_preview = json.dumps([{"id": t["id"], "name": t["name"], "artists": [a.get("name") for a in t.get("artists", [])], "album_image": t.get("album", {}).get("images", [{}])[0].get("url") if t.get("album", {}).get("images") else None} for t in tracks])
         entry = models.MoodEntry(
@@ -601,7 +619,7 @@ async def mood_recommendations(request: Request, db: Session = Depends(get_db)):
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 
-    user_id = await _get_current_user_id(access_token)
+    user_id = await _get_current_user_id(access_token, db)
     if user_id:
         track_preview = json.dumps([{"id": t["id"], "name": t["name"], "artists": [a.get("name") for a in t.get("artists", [])], "album_image": t.get("album", {}).get("images", [{}])[0].get("url") if t.get("album", {}).get("images") else None} for t in tracks])
         entry = models.MoodEntry(
@@ -731,7 +749,7 @@ async def submit_track_feedback(
     if not access_token:
         return {"error": "Not authenticated"}
 
-    user_id = await _get_current_user_id(access_token)
+    user_id = await _get_current_user_id(access_token, db)
     if not user_id:
         return {"error": "Could not determine user ID"}
 
