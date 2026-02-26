@@ -83,12 +83,12 @@ MOOD_PROFILES = {
         "search_descriptors": ["melancholy", "depressing", "yearning", "sadness", "crying"],
     },
     "sensual": {
-        "genres": ["dark-pop", "trap", "alternative-r-n-b", "r-n-b"],
+        "genres": ["r&b", "pop", "trap", "alternative-r-n-b"],
         "target_valence": 0.40,
         "target_energy": 0.70,
         "min_energy": 0.40,
         "description": "Seductive, sultry, intimate heat & dark pop",
-        "search_descriptors": ["toxic", "explicit", "dark r&b", "seductive", "sensual"],
+        "search_descriptors": ["toxic", "after dark", "dark", "seductive", "sensual"],
     },
 }
 
