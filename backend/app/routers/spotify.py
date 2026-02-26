@@ -275,26 +275,40 @@ async def _get_personalized_recommendations(
         print(f"[AI.pollo] Built user taste profile with {len(user_taste_profile)} unique artists.")
 
         # Step 2: Search for human-curated playlists matching the mood
-        mood_keyword = mood_profile.get("search_descriptors", [""])[0]
-        mood_genre = mood_profile.get("genres", [""])[0]
-        search_query = f"{mood_keyword} {mood_genre}".strip()
+        # Instead of just picking the first keyword [0], we combine the top 2 descriptors and genres 
+        # to ensure we capture a wide net of vibes (e.g. 'sensual dark-pop' vs just 'sensual r-n-b')
+        search_queries = []
+        for keyword in mood_profile.get("search_descriptors", [""])[:2]:
+            for genre in mood_profile.get("genres", [""])[:2]:
+                search_queries.append(f"{keyword} {genre}".strip())
         
+        playlist_ids = []
         try:
-            r = await client.get(
-                "https://api.spotify.com/v1/search", 
-                params={"q": search_query, "type": "playlist", "limit": 5}
-            )
-            r.raise_for_status()
-            playlists = r.json().get("playlists", {}).get("items", [])
-            playlist_ids = [p["id"] for p in playlists if p and p.get("id")]
+            # Run multiple targeted queries to build a much larger pool of 15 overlapping playlists
+            async def _search_spotify_playlists(q: str):
+                try:
+                    r = await client.get(
+                        "https://api.spotify.com/v1/search", 
+                        params={"q": q, "type": "playlist", "limit": 5}
+                    )
+                    r.raise_for_status()
+                    return [p["id"] for p in r.json().get("playlists", {}).get("items", []) if p and p.get("id")]
+                except Exception:
+                    return []
+
+            results = await asyncio.gather(*[_search_spotify_playlists(q) for q in search_queries])
+            for res in results:
+                playlist_ids.extend(res)
+                
+            # Remove any duplicates
+            playlist_ids = list(set(playlist_ids))
         except Exception as e:
             print(f"[AI.pollo] Playlist search failed: {e}")
-            playlist_ids = []
 
         if not playlist_ids:
             return []
             
-        print(f"[AI.pollo] Scraping {len(playlist_ids)} playlists for '{search_query}'...")
+        print(f"[AI.pollo] Scraping {len(playlist_ids)} playlists from queries: {search_queries}...")
 
         # Step 3: Fetch tracks from all matching playlists in parallel
         async def _get_playlist_tracks(pid: str):
@@ -528,25 +542,42 @@ async def search_playlists(request: Request, mood: str, limit: int = 10):
 
     mood_profile = MOOD_PROFILES[mood]
 
-    # Updated: Now uses vibe-based search instead of strict literal mood names
-    mood_keyword = mood_profile.get("search_descriptors", [""])[0]
-    mood_genre = mood_profile.get("genres", [""])[0]
-    search_query = f"{mood_keyword} {mood_genre}".strip()
+    # Updated: Uses a combination of the top 2 genres and descriptors to yield richer Discover playlists
+    search_queries = []
+    for keyword in mood_profile.get("search_descriptors", [""])[:2]:
+        for genre in mood_profile.get("genres", [""])[:2]:
+            search_queries.append(f"{keyword} {genre}".strip())
 
     search_url = "https://api.spotify.com/v1/search"
-    params = {"q": search_query, "type": "playlist", "limit": limit}
-
+    playlists = []
+    
     try:
         async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                search_url, headers=_auth_header(access_token), params=params
-            )
-            resp.raise_for_status()
-            search_data = resp.json()
+            async def _search_spotify_playlists(q: str):
+                try:
+                    resp = await client.get(
+                        search_url, headers=_auth_header(access_token), params={"q": q, "type": "playlist", "limit": max(2, limit // len(search_queries))}
+                    )
+                    resp.raise_for_status()
+                    return [p for p in resp.json().get("playlists", {}).get("items", []) if p and p.get("id")]
+                except Exception:
+                    return []
+
+            results = await asyncio.gather(*[_search_spotify_playlists(q) for q in search_queries])
+            
+            # Flatten and deduplicate
+            seen_ids = set()
+            for res_list in results:
+                for p in res_list:
+                    if p["id"] not in seen_ids:
+                        seen_ids.add(p["id"])
+                        playlists.append(p)
+                        
+            # Enforce overall API limit
+            playlists = playlists[:limit]
+            
     except httpx.HTTPStatusError as e:
         return {"error": "Failed to search playlists", "details": str(e)}
-
-    playlists = [p for p in search_data.get("playlists", {}).get("items", []) if p and p.get("id")]
 
     return {
         "mood": mood,

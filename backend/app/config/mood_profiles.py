@@ -9,13 +9,13 @@ MOOD_PROFILES = {
         "search_descriptors": ["upbeat", "feel good", "happy", "cheerful"],
     },
     "sad": {
-        "genres": ["blues", "indie", "acoustic", "singer-songwriter", "soul"],
+        "genres": ["indie", "acoustic", "singer-songwriter", "pop", "soul"],
         "target_valence": 0.2,
         "max_valence": 0.4,
         "target_energy": 0.3,
         "max_energy": 0.5,
         "description": "Melancholic, emotional, reflective",
-        "search_descriptors": ["sad", "heartbreak", "emotional", "crying"],
+        "search_descriptors": ["sad", "heartbreak", "yearning", "crying"],
     },
     "energetic": {
         "genres": ["rock", "edm", "hip-hop", "metal", "electronic"],
@@ -80,7 +80,7 @@ MOOD_PROFILES = {
         "target_energy": 0.3,
         "max_energy": 0.5,
         "description": "Deep sadness, beautiful sorrow, poetic darkness",
-        "search_descriptors": ["melancholy", "depressing", "heartbreak", "sadness", "crying"],
+        "search_descriptors": ["melancholy", "depressing", "yearning", "sadness", "crying"],
     },
     "sensual": {
         "genres": ["r-n-b", "dark-pop", "alternative-r-n-b", "trap", "soul"],
@@ -215,6 +215,7 @@ MOOD_ASSOCIATIONS = {
     "tampo": "sad",
     "sawi": "sad",
     "hugot": "melancholic",
+    "yearning": "melancholic",
     "lss": "nostalgic",
     "walwal": "energetic",
     "chill lang": "chill",
