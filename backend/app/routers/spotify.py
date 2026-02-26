@@ -285,6 +285,7 @@ async def _get_personalized_recommendations(
         playlist_ids = []
         try:
             # Run multiple targeted queries to build a much larger pool of 15 overlapping playlists
+            banned_terms = mood_profile.get("banned_playlist_terms", [])
             async def _search_spotify_playlists(q: str):
                 try:
                     r = await client.get(
@@ -292,7 +293,15 @@ async def _get_personalized_recommendations(
                         params={"q": q, "type": "playlist", "limit": 5}
                     )
                     r.raise_for_status()
-                    return [p["id"] for p in r.json().get("playlists", {}).get("items", []) if p and p.get("id")]
+                    
+                    scraped_ids = []
+                    for p in r.json().get("playlists", {}).get("items", []):
+                        if not p or not p.get("id"): continue
+                        title = (p.get("name") or "").lower()
+                        if any(term in title for term in banned_terms):
+                            continue
+                        scraped_ids.append(p["id"])
+                    return scraped_ids
                 except Exception:
                     return []
 
@@ -361,6 +370,11 @@ async def _get_personalized_recommendations(
                     # Core intersect logic: +100 points for a taste match
                     if any(a.get("id") in user_taste_profile for a in artists):
                         track_scores[tid] += 100
+                        
+                    # Explicit boost (e.g. naturally float darker/toxic pop tracks higher if mood requests it)
+                    explicit_boost = mood_profile.get("explicit_boost", 0)
+                    if explicit_boost > 0 and t.get("explicit", False):
+                        track_scores[tid] += explicit_boost
                         
                     # ML Bias Scoring
                     if tid in liked_tracks:
@@ -553,13 +567,22 @@ async def search_playlists(request: Request, mood: str, limit: int = 10):
     
     try:
         async with httpx.AsyncClient() as client:
+            banned_terms = mood_profile.get("banned_playlist_terms", [])
             async def _search_spotify_playlists(q: str):
                 try:
                     resp = await client.get(
                         search_url, headers=_auth_header(access_token), params={"q": q, "type": "playlist", "limit": max(2, limit // len(search_queries))}
                     )
                     resp.raise_for_status()
-                    return [p for p in resp.json().get("playlists", {}).get("items", []) if p and p.get("id")]
+                    
+                    scraped_lists = []
+                    for p in resp.json().get("playlists", {}).get("items", []):
+                        if not p or not p.get("id"): continue
+                        title = (p.get("name") or "").lower()
+                        if any(term in title for term in banned_terms):
+                            continue
+                        scraped_lists.append(p)
+                    return scraped_lists
                 except Exception:
                     return []
 

@@ -83,12 +83,14 @@ MOOD_PROFILES = {
         "search_descriptors": ["melancholy", "depressing", "yearning", "sadness", "crying"],
     },
     "sensual": {
-        "genres": ["r&b", "pop", "trap", "alternative-r-n-b"],
-        "target_valence": 0.40,
-        "target_energy": 0.70,
-        "min_energy": 0.40,
+        "genres": ["r-n-b", "dark-pop", "alternative-r-n-b", "trap", "soul"],
+        "target_valence": 0.45,
+        "target_energy": 0.65,
+        "min_energy": 0.35,
         "description": "Seductive, sultry, intimate heat & dark pop",
-        "search_descriptors": ["toxic", "after dark", "dark", "seductive", "sensual"],
+        "search_descriptors": ["sensual", "dark r&b", "seductive", "toxic", "explicit"],
+        "banned_playlist_terms": ["chill", "soft", "sweet", "smooth", "morning", "relax", "sleep", "study", "lo-fi", "lofi"],
+        "explicit_boost": 30,
     },
 }
 
