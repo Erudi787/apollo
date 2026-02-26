@@ -64,7 +64,7 @@ export default function Dashboard() {
         setPlaylistName(`AI.pollo · ${mood.charAt(0).toUpperCase() + mood.slice(1)} Vibes`)
 
         try {
-            const { data } = await moodAPI.getRecommendations(mood, 24)
+            const { data } = await moodAPI.getRecommendations(mood, 50)
             setMoodDescription(data.description)
             setTracks(data.tracks)
         } catch (err) {
@@ -84,7 +84,7 @@ export default function Dashboard() {
         setDiscoveredPlaylists([])
 
         try {
-            const { data } = await moodAPI.getMoodRecommendations({ text, limit: 24 })
+            const { data } = await moodAPI.getMoodRecommendations({ text, limit: 50 })
             setSelectedMood(data.mood)
             setMoodDescription(data.description)
             setTracks(data.tracks)
@@ -111,7 +111,8 @@ export default function Dashboard() {
             const description = `Curated by AI.pollo based on your ${selectedMood} mood. ${moodDescription}`
 
             const { data } = await playlistAPI.create(finalName, trackUris, description, true)
-            setSavedLink(data.external_urls?.spotify || null)
+            // Use native deep-link URI "spotify:playlist:{id}" to force-open the app, fallback to web URL
+            setSavedLink(data.id ? `spotify:playlist:${data.id}` : data.external_urls?.spotify || null)
         } catch (err) {
             console.error('Failed to save playlist:', err)
             setError('Failed to save playlist. Please try again.')

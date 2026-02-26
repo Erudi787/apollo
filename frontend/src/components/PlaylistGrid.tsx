@@ -9,7 +9,7 @@ interface PlaylistGridProps {
 
 function LoadingSkeleton() {
     return (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6">
             {Array.from({ length: 12 }).map((_, i) => (
                 <div key={i} className="glass-card overflow-hidden animate-pulse rounded-2xl">
                     <div className="aspect-square bg-slate-200/50 dark:bg-slate-800/50" />
@@ -47,7 +47,7 @@ export default function PlaylistGrid({ tracks, loading }: PlaylistGridProps) {
             variants={containerVariants}
             initial="hidden"
             animate="visible"
-            className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
         >
             {tracks.map((track, index) => (
                 <TrackCard key={track.id || index} track={track} />

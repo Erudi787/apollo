@@ -24,7 +24,7 @@ export default function PlaylistModal({ playlist, tracks, loading, onClose }: Pl
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const coverImage = playlist.images?.[0]?.url
-    const spotifyUrl = playlist.external_urls?.spotify
+    const spotifyUrl = playlist.id ? `spotify:playlist:${playlist.id}` : playlist.external_urls?.spotify
 
     const togglePreview = (track: SpotifyTrack) => {
         if (!track.preview_url) return
