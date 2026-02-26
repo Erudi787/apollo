@@ -106,6 +106,12 @@ export const moodAPI = {
         }),
     getMoodRecommendations: (data: MoodRecommendationRequest) =>
         api.post<RecommendationResponse>('/api/mood-recommendations', data),
+    submitTrackFeedback: (trackId: string, artistId: string, isLiked: boolean) =>
+        api.post<{ message: string; is_liked: boolean }>('/api/recommendations/feedback', {
+            track_id: trackId,
+            artist_id: artistId,
+            is_liked: isLiked
+        }),
     searchPlaylists: (mood: string, limit: number = 10) =>
         api.get('/api/playlists/search', { params: { mood, limit } }),
     getPlaylistTracks: (playlistId: string) =>

@@ -187,17 +187,36 @@ def _is_junk_track(track: dict) -> bool:
 
 
 async def _get_personalized_recommendations(
-    access_token: str, mood_profile: dict, limit: int = 20
+    access_token: str, mood_profile: dict, limit: int = 20, db: Session = None
 ) -> list[dict]:
     """Get mood-matched, personalized tracks using a Curated Intersect Algorithm.
     
     Since Spotify deprecated /v1/recommendations and audio-features, we scrape 
-    human-curated mood playlists and intersect them with the user's top artists.
+    human-curated mood playlists and intersect them with the user's top artists
+    and explicit machine-learning feedback preferences.
     """
     headers = _auth_header(access_token)
     
     import time
     t_start = time.time()
+
+    # Step 0: Get User ID & fetch their explicit ML Feedback history
+    user_id = await _get_current_user_id(access_token)
+    liked_tracks = set()
+    disliked_tracks = set()
+    liked_artists = set()
+    disliked_artists = set()
+
+    if user_id and db:
+        feedbacks = db.query(TrackFeedback).filter(TrackFeedback.user_id == user_id).all()
+        for fb in feedbacks:
+            if fb.is_liked:
+                if fb.track_id: liked_tracks.add(fb.track_id)
+                if fb.artist_id: liked_artists.add(fb.artist_id)
+            else:
+                if fb.track_id: disliked_tracks.add(fb.track_id)
+                if fb.artist_id: disliked_artists.add(fb.artist_id)
+        print(f"[AI.pollo ML] Loaded feedback profile: {len(liked_tracks)} liked tracks, {len(disliked_tracks)} disliked.")
 
     async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
         # Step 1: Fetch user's top artists to build the taste profile
@@ -301,9 +320,19 @@ async def _get_personalized_recommendations(
                     track_dict[tid] = t
                     track_scores[tid] = 0
                     
+                    # ML Dislike Penalty: Immediately skip tracks the user explicitly disliked
+                    if tid in disliked_tracks or any(a.get("id") in disliked_artists for a in artists):
+                        continue
+                    
                     # Core intersect logic: +100 points for a taste match
                     if any(a.get("id") in user_taste_profile for a in artists):
                         track_scores[tid] += 100
+                        
+                    # ML Bias Scoring
+                    if tid in liked_tracks:
+                        track_scores[tid] += 50
+                    if any(a.get("id") in liked_artists for a in artists):
+                        track_scores[tid] += 200
                 
                 # +1 point for every time it appears in a curated playlist (consensus sorting)
                 track_scores[tid] += 1
@@ -683,4 +712,44 @@ async def get_playlist_tracks(request: Request, playlist_id: str, limit: int = 5
 
     tracks = [item["track"] for item in data.get("items", []) if item.get("track")]
     return {"tracks": tracks, "total": data.get("total", len(tracks))}
+
+class TrackFeedbackRequest(BaseModel):
+    track_id: str
+    artist_id: str
+    is_liked: bool
+
+@router.post("/recommendations/feedback")
+async def submit_track_feedback(
+    request: Request, 
+    feedback: TrackFeedbackRequest, 
+    db: Session = Depends(get_db)
+):
+    """Save explicit user preferences (Thumbs Up/Down) to bias future algorithm recommendations."""
+    access_token = _get_token_or_error(request)
+    if not access_token:
+        return {"error": "Not authenticated"}
+
+    user_id = await _get_current_user_id(access_token)
+    if not user_id:
+        return {"error": "Could not determine user ID"}
+
+    # Update or insert feedback
+    existing_feedback = db.query(TrackFeedback).filter(
+        TrackFeedback.user_id == user_id,
+        TrackFeedback.track_id == feedback.track_id
+    ).first()
+
+    if existing_feedback:
+        existing_feedback.is_liked = feedback.is_liked
+    else:
+        new_feedback = TrackFeedback(
+            user_id=user_id,
+            track_id=feedback.track_id,
+            artist_id=feedback.artist_id,
+            is_liked=feedback.is_liked
+        )
+        db.add(new_feedback)
+
+    db.commit()
+    return {"message": "Feedback saved successfully", "is_liked": feedback.is_liked}
 

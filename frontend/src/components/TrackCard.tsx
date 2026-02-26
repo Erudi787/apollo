@@ -1,8 +1,9 @@
 import { useState, useRef } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, ThumbsUp, ThumbsDown } from 'lucide-react'
 import type { SpotifyTrack } from '../types'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { cn } from '../utils/utils'
+import { moodAPI } from '../services/api'
 
 interface TrackCardProps {
     track: SpotifyTrack
@@ -10,11 +11,32 @@ interface TrackCardProps {
 
 export default function TrackCard({ track }: TrackCardProps) {
     const [isPlaying, setIsPlaying] = useState(false)
+    const [feedback, setFeedback] = useState<'liked' | 'disliked' | null>(null)
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const albumImage = track.album?.images?.[0]?.url || track.album?.images?.[1]?.url
     const artistNames = track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'
+    const primaryArtistId = track.artists?.[0]?.id || ''
     const spotifyUrl = track.external_urls?.spotify
+
+    const handleFeedback = async (e: React.MouseEvent, type: 'liked' | 'disliked') => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (isSubmitting || !track.id || !primaryArtistId) return
+
+        setIsSubmitting(true)
+        const isLiked = type === 'liked'
+
+        try {
+            await moodAPI.submitTrackFeedback(track.id, primaryArtistId, isLiked)
+            setFeedback(type)
+        } catch (error) {
+            console.error('[AI.pollo ML] Failed to submit feedback:', error)
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
 
     const togglePreview = (e: React.MouseEvent) => {
         e.preventDefault()
@@ -84,6 +106,32 @@ export default function TrackCard({ track }: TrackCardProps) {
                 initial={{ opacity: 0 }}
                 className="absolute inset-0 border border-white/10 rounded-2xl mix-blend-overlay pointer-events-none transition-opacity duration-500"
             />
+
+            {/* Top-Right ML Feedback Controls */}
+            <div className="absolute top-3 right-3 flex flex-col gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <button
+                    onClick={(e) => handleFeedback(e, 'liked')}
+                    disabled={isSubmitting || feedback === 'liked'}
+                    className={cn(
+                        "p-2 rounded-full true-glass-strong transition-all duration-300 hover:scale-110 shadow-lg pointer-events-auto",
+                        feedback === 'liked' ? "bg-brand-cyan/20 text-brand-cyan border-brand-cyan/50" : "text-white/70 hover:text-white bg-black/40 hover:bg-black/60"
+                    )}
+                    aria-label="Like to train AI.pollo"
+                >
+                    <ThumbsUp size={16} className={cn(feedback === 'liked' && "fill-brand-cyan")} />
+                </button>
+                <button
+                    onClick={(e) => handleFeedback(e, 'disliked')}
+                    disabled={isSubmitting || feedback === 'disliked'}
+                    className={cn(
+                        "p-2 rounded-full true-glass-strong transition-all duration-300 hover:scale-110 shadow-lg pointer-events-auto",
+                        feedback === 'disliked' ? "bg-red-500/20 text-red-400 border-red-500/50" : "text-white/70 hover:text-white bg-black/40 hover:bg-black/60"
+                    )}
+                    aria-label="Dislike to train AI.pollo"
+                >
+                    <ThumbsDown size={16} className={cn(feedback === 'disliked' && "fill-red-400")} />
+                </button>
+            </div>
 
             {/* Content */}
             <div className="absolute inset-0 p-4 sm:p-5 flex flex-col justify-end">

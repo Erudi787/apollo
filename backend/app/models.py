@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Boolean
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -12,6 +12,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     mood_entries = relationship("MoodEntry", back_populates="user", cascade="all, delete-orphan")
+    feedback = relationship("TrackFeedback", back_populates="user", cascade="all, delete-orphan")
     
     # Relationships for followers/following
     followers = relationship(
@@ -48,3 +49,19 @@ class Friendship(Base):
 
     follower = relationship("User", foreign_keys=[follower_id], back_populates="following")
     followed = relationship("User", foreign_keys=[followed_id], back_populates="followers")
+
+class TrackFeedback(Base):
+    """
+    Stores explicit user preferences (Thumb Up / Thumb Down) for a track.
+    This data continuously trains the Curated Intersect Algorithm for deeper personalization.
+    """
+    __tablename__ = "track_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    track_id = Column(String, index=True)
+    artist_id = Column(String, index=True) # Stored redundantly to quickly bias artist scoring
+    is_liked = Column(Boolean) # True = Thumb Up, False = Thumb Down
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="feedback")
