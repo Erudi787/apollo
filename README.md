@@ -57,6 +57,18 @@ During this project, I've picked up important skills and a better understanding 
 - **API Design**: Building clean, RESTful endpoints to connect the React frontend with complex backend processing logic.
 - **Vercel Deployments**: Configuring ASGI FastAPI applications to run seamlessly as serverless functions on Vercel.
 
+## 🚦 Spotify API Production Notice (2025/2026 Policy)
+
+> [!WARNING]
+> **Public Access Limitation**: Due to strict updates in Spotify's Developer Policy regarding AI and automated API usage, this application operates under Spotify's "Development Mode". 
+> 
+> Spotify currently enforces a hard cap of **5 authorized test users** for all indie applications. Transitioning to Extended Quota/Production Mode now strictly requires a legally registered business/LLC and a baseline of 250,000 Monthly Active Users (MAU).
+> 
+> **How to Test the App:**
+> Because of this Catch-22 limitation, the live deployment link acts primarily as a UI/UX and architectural portfolio showcase. To actually authenticate and generate playlists yourself:
+> 1. Fork this repository and create your own Spotify Developer App (add your credentials to `.env`).
+> 2. Or, contact me to be manually whitelisted as one of the 5 authorized test users on the Spotify Developer Dashboard.
+
 ## 💭 How can it be improved?
 
 - Implement a machine-learning model that learns from user feedback (likes/dislikes on recommended tracks) for more advanced personalization.
