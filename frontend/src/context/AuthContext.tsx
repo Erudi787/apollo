@@ -58,6 +58,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         } catch (error) {
             console.error('Logout failed:', error);
         }
+
+        // Clear local storage tokens regardless of API success
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
         setUser(null);
     };
 

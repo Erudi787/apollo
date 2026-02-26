@@ -144,25 +144,15 @@ async def callback(request: Request, code: str, state: str):
     tokens = resp.json()
 
     frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-    response = RedirectResponse(url=f"{frontend_url}/callback")
-
-    response.set_cookie(
-        key="access_token",
-        value=tokens["access_token"],
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=3600,
-    )
-
-    response.set_cookie(
-        key="refresh_token",
-        value=tokens["refresh_token"],
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=2592000,  # 30 days
-    )
+    
+    # URL fragment is inherently more secure than query parameters for tokens
+    # because the fragment (#) is never sent to the server in HTTP requests.
+    fragment = urlencode({
+        "access_token": tokens.get("access_token"),
+        "refresh_token": tokens.get("refresh_token")
+    })
+    
+    response = RedirectResponse(url=f"{frontend_url}/callback#{fragment}")
 
     return response
 
@@ -170,7 +160,14 @@ async def callback(request: Request, code: str, state: str):
 @router.get("/status")
 async def auth_status(request: Request, db: Session = Depends(get_db)):
     """Check if the user is authenticated and return their profile."""
-    access_token = request.cookies.get("access_token")
+    # Read token from Bearer header first (primary auth flow), fallback to cookie
+    auth_header = request.headers.get("Authorization")
+    access_token = None
+    if auth_header and auth_header.startswith("Bearer "):
+        access_token = auth_header.split(" ")[1]
+    
+    if not access_token:
+        access_token = request.cookies.get("access_token")
 
     if not access_token:
         return {"authenticated": False}
@@ -250,7 +247,16 @@ async def _do_refresh(refresh_token: str) -> str | None:
 @router.post("/refresh")
 async def refresh_token(request: Request):
     """Use the refresh token to get a new access token."""
-    refresh = request.cookies.get("refresh_token")
+    # Fallback checking: Body > Header > Cookie
+    refresh = None
+    try:
+        body = await request.json()
+        refresh = body.get("refresh_token")
+    except Exception:
+        pass
+    
+    if not refresh:
+        refresh = request.cookies.get("refresh_token")
 
     if not refresh:
         return {"error": "No refresh token found"}, 401
@@ -260,16 +266,4 @@ async def refresh_token(request: Request):
     if not new_access_token:
         return {"error": "Failed to refresh token"}, 401
 
-    response = Response(
-        content='{"message": "Token refreshed"}',
-        media_type="application/json",
-    )
-    response.set_cookie(
-        key="access_token",
-        value=new_access_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=3600,
-    )
-    return response
+    return {"access_token": new_access_token}

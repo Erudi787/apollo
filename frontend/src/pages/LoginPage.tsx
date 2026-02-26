@@ -1,12 +1,14 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
+import { useInAppBrowser } from '../hooks/useInAppBrowser'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
-import { ArrowUp, LogOut } from 'lucide-react'
+import { ArrowUp, LogOut, AlertCircle } from 'lucide-react'
 
 export default function LoginPage() {
     const { user, login, logout } = useAuth()
     const navigate = useNavigate()
+    const isInAppBrowser = useInAppBrowser()
 
     const [scrolled, setScrolled] = useState(false)
     const buttonRef = useRef<HTMLDivElement>(null)
@@ -236,7 +238,7 @@ export default function LoginPage() {
                     </motion.p>
 
                     {/* Premium Magnetic Button */}
-                    <motion.div ref={buttonRef} variants={itemVariants} className="w-full sm:w-auto relative z-20">
+                    <motion.div ref={buttonRef} variants={itemVariants} className="w-full sm:w-auto relative z-20 flex flex-col items-center">
                         {user ? (
                             <button
                                 onClick={() => navigate('/dashboard')}
@@ -246,6 +248,29 @@ export default function LoginPage() {
                                     Explore Songs →
                                 </span>
                             </button>
+                        ) : isInAppBrowser ? (
+                            <div className="flex flex-col items-center gap-4 max-w-sm mt-4">
+                                <div className="true-glass border border-red-500/30 bg-red-500/10 rounded-2xl p-5 flex flex-col gap-3">
+                                    <div className="flex items-center gap-2 text-red-400 font-bold">
+                                        <AlertCircle size={20} />
+                                        <span>Embedded Browser Detected</span>
+                                    </div>
+                                    <p className="text-sm text-white/80 leading-relaxed font-light">
+                                        Google blocks logging in from embedded browsers like Messenger or Instagram.
+                                    </p>
+                                    <div className="bg-white/5 rounded-lg p-3 text-sm text-white/90 font-medium tracking-wide leading-relaxed">
+                                        Tap the <span className="font-bold text-white text-lg px-0.5 relative top-0.5">•••</span> icon in the top corner and select <span className="text-brand-cyan font-bold px-1">"Open in System Browser"</span> to continue.
+                                    </div>
+                                </div>
+                                <button
+                                    disabled
+                                    className="w-full sm:w-auto px-12 py-5 sm:py-6 rounded-full flex items-center justify-center gap-4 opacity-50 cursor-not-allowed bg-white/5"
+                                >
+                                    <span className="font-display font-bold text-xl tracking-wide text-white/50">
+                                        Connect with Spotify
+                                    </span>
+                                </button>
+                            </div>
                         ) : (
                             <button
                                 onClick={login}

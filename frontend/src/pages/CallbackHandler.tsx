@@ -8,8 +8,22 @@ export default function CallbackHandler() {
 
     useEffect(() => {
         const handleCallback = async () => {
-            // After Spotify redirects here, our backend has already set
-            // the cookies. We just need to verify auth and redirect.
+            // Extract tokens from the URL fragment hash
+            const hash = window.location.hash.substring(1)
+            const params = new URLSearchParams(hash)
+            const accessToken = params.get('access_token')
+            const refreshToken = params.get('refresh_token')
+
+            if (accessToken && refreshToken) {
+                // Save tokens to localStorage
+                localStorage.setItem('access_token', accessToken)
+                localStorage.setItem('refresh_token', refreshToken)
+
+                // Remove the tokens from the URL for security/cleanliness
+                window.history.replaceState(null, '', window.location.pathname)
+            }
+
+            // Verify auth against backend
             await checkAuth()
             navigate('/dashboard', { replace: true })
         }
