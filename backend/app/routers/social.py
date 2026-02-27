@@ -21,13 +21,15 @@ async def get_social_feed(request: Request, db: Session = Depends(get_db)):
     following = db.query(models.Friendship).filter(models.Friendship.follower_id == user_id).all()
     following_ids = [f.followed_id for f in following]
     
-    feed_entries = db.query(models.MoodEntry).filter(
+    # Optimized: Single merged query eliminating the N+1 vulnerability
+    feed_entries = db.query(models.MoodEntry, models.User).outerjoin(
+        models.User, models.MoodEntry.user_id == models.User.id
+    ).filter(
         models.MoodEntry.user_id.in_(following_ids)
     ).order_by(models.MoodEntry.timestamp.desc()).limit(50).all()
     
     feed = []
-    for entry in feed_entries:
-        user = db.query(models.User).filter(models.User.id == entry.user_id).first()
+    for entry, user in feed_entries:
         feed.append({
             "id": entry.id,
             "user": {

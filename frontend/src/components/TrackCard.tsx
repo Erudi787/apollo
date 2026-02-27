@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react'
-import { Play, Pause, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { useState, useRef, memo } from 'react'
+import { Play, Pause, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react'
 import type { SpotifyTrack } from '../types'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { cn } from '../utils/utils'
@@ -9,10 +9,13 @@ interface TrackCardProps {
     track: SpotifyTrack
 }
 
-export default function TrackCard({ track }: TrackCardProps) {
+const TrackCard = memo(function TrackCard({ track }: TrackCardProps) {
     const [isPlaying, setIsPlaying] = useState(false)
     const [feedback, setFeedback] = useState<'liked' | 'disliked' | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [audioSrc, setAudioSrc] = useState<string | null>(track.preview_url)
+    const [isLoadingAudio, setIsLoadingAudio] = useState(false)
+    const [audioProgress, setAudioProgress] = useState(0)
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const albumImage = track.album?.images?.[0]?.url || track.album?.images?.[1]?.url
@@ -38,28 +41,69 @@ export default function TrackCard({ track }: TrackCardProps) {
         }
     }
 
-    const togglePreview = (e: React.MouseEvent) => {
+    const togglePreview = async (e: React.MouseEvent) => {
         e.preventDefault()
         e.stopPropagation()
-        if (!track.preview_url) return
 
         if (isPlaying) {
             audioRef.current?.pause()
-            setIsPlaying(false)
-        } else {
-            document.querySelectorAll('audio').forEach((a) => {
-                a.pause()
-                a.currentTime = 0
+            return
+        }
+
+        let currentSrc = audioSrc
+        if (!currentSrc) {
+            setIsLoadingAudio(true)
+            try {
+                const query = `${track.name} ${track.artists?.[0]?.name || ''}`
+                const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`)
+                const data = await res.json()
+                if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
+                    currentSrc = data.results[0].previewUrl
+                    setAudioSrc(currentSrc)
+                } else {
+                    console.warn("No iTunes preview found.")
+                    setIsLoadingAudio(false)
+                    return
+                }
+            } catch (err) {
+                console.error("Failed to fetch iTunes preview:", err)
+                setIsLoadingAudio(false)
+                return
+            }
+            setIsLoadingAudio(false)
+        }
+
+        if (!currentSrc) return
+
+        document.querySelectorAll('audio').forEach((a) => {
+            a.pause()
+            a.currentTime = 0
+        })
+
+        if (!audioRef.current || audioRef.current.src !== currentSrc) {
+            audioRef.current = new Audio(currentSrc)
+            audioRef.current.volume = 0.5
+
+            audioRef.current.addEventListener('timeupdate', () => {
+                if (audioRef.current && audioRef.current.duration) {
+                    setAudioProgress(audioRef.current.currentTime / audioRef.current.duration)
+                }
             })
 
-            if (!audioRef.current) {
-                audioRef.current = new Audio(track.preview_url)
-                audioRef.current.volume = 0.5
-                audioRef.current.addEventListener('ended', () => setIsPlaying(false))
-            }
-            audioRef.current.play()
-            setIsPlaying(true)
+            audioRef.current.addEventListener('pause', () => {
+                setIsPlaying(false)
+            })
+
+            audioRef.current.addEventListener('play', () => {
+                setIsPlaying(true)
+            })
+
+            audioRef.current.addEventListener('ended', () => {
+                setIsPlaying(false)
+                setAudioProgress(0)
+            })
         }
+        audioRef.current.play()
     }
 
     const cardVariants: Variants = {
@@ -164,24 +208,45 @@ export default function TrackCard({ track }: TrackCardProps) {
                 </p>
             </div>
 
-            {/* Play/Pause Button Area (appears on hover or when playing) */}
-            {track.preview_url && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <button
-                        onClick={togglePreview}
-                        className={cn(
-                            "w-16 h-16 rounded-full true-glass-strong flex items-center justify-center transition-all duration-500 hover:scale-110 hover:bg-white/20",
-                            isPlaying ? "opacity-100 scale-100" : "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100"
-                        )}
-                    >
-                        {isPlaying ? (
-                            <Pause size={28} className="text-white fill-white" />
-                        ) : (
-                            <Play size={28} className="ml-1 text-white fill-white" />
-                        )}
-                    </button>
-                </div>
-            )}
+            {/* Play/Pause Button Area (always rendered) */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <button
+                    onClick={togglePreview}
+                    disabled={isLoadingAudio}
+                    className={cn(
+                        "w-16 h-16 rounded-full true-glass-strong flex items-center justify-center transition-all duration-500 hover:scale-110 hover:bg-white/20 pointer-events-auto relative",
+                        isPlaying || isLoadingAudio ? "opacity-100 scale-100" : "opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100"
+                    )}
+                >
+                    {/* Progress Ring */}
+                    {isPlaying && (
+                        <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                            <circle
+                                cx="32"
+                                cy="32"
+                                r="30"
+                                fill="transparent"
+                                stroke="rgba(255, 255, 255, 0.9)"
+                                strokeWidth="3"
+                                strokeDasharray="188.5"
+                                strokeDashoffset={188.5 - (audioProgress || 0) * 188.5}
+                                strokeLinecap="round"
+                                className="transition-all duration-200 ease-linear"
+                            />
+                        </svg>
+                    )}
+
+                    {isLoadingAudio ? (
+                        <Loader2 size={28} className="text-white animate-spin z-10" />
+                    ) : isPlaying ? (
+                        <Pause size={28} className="text-white fill-white z-10" />
+                    ) : (
+                        <Play size={28} className="ml-1 text-white fill-white z-10" />
+                    )}
+                </button>
+            </div>
         </motion.a>
     )
-}
+})
+
+export default TrackCard
