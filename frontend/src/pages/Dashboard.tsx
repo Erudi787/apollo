@@ -32,7 +32,8 @@ type SpotifyPlaylist = any
 export default function Dashboard() {
     const [selectedMood, setSelectedMood] = useState<string | null>(null)
     const [moodDescription, setMoodDescription] = useState<string>('')
-    const [tracks, setTracks] = useState<SpotifyTrack[]>([])
+    const [displayTracks, setDisplayTracks] = useState<SpotifyTrack[]>([])
+    const [reserveTracks, setReserveTracks] = useState<SpotifyTrack[]>([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
@@ -64,13 +65,15 @@ export default function Dashboard() {
         setPlaylistName(`AI.pollo · ${mood.charAt(0).toUpperCase() + mood.slice(1)} Vibes`)
 
         try {
-            const { data } = await moodAPI.getRecommendations(mood, 50)
+            const { data } = await moodAPI.getRecommendations(mood, 60)
             setMoodDescription(data.description)
-            setTracks(data.tracks)
+            setDisplayTracks(data.tracks.slice(0, 50))
+            setReserveTracks(data.tracks.slice(50))
         } catch (err) {
             console.error('Failed to get recommendations:', err)
             setError('Failed to load recommendations. Please try again.')
-            setTracks([])
+            setDisplayTracks([])
+            setReserveTracks([])
         } finally {
             setLoading(false)
         }
@@ -84,26 +87,28 @@ export default function Dashboard() {
         setDiscoveredPlaylists([])
 
         try {
-            const { data } = await moodAPI.getMoodRecommendations({ text, limit: 50 })
+            const { data } = await moodAPI.getMoodRecommendations({ text, limit: 60 })
             setSelectedMood(data.mood)
             setMoodDescription(data.description)
-            setTracks(data.tracks)
+            setDisplayTracks(data.tracks.slice(0, 50))
+            setReserveTracks(data.tracks.slice(50))
             setPlaylistName(`AI.pollo · ${data.mood.charAt(0).toUpperCase() + data.mood.slice(1)} Vibes`)
         } catch (err) {
             console.error('Failed to analyze mood:', err)
             setError('Could not analyze your mood. Try selecting one manually.')
-            setTracks([])
+            setDisplayTracks([])
+            setReserveTracks([])
         } finally {
             setLoading(false)
         }
     }
 
     const handleSavePlaylist = async () => {
-        if (!selectedMood || tracks.length === 0 || saving) return
+        if (!selectedMood || displayTracks.length === 0 || saving) return
 
         setSaving(true)
         try {
-            const trackUris = tracks
+            const trackUris = displayTracks
                 .map(t => t.uri)
                 .filter(Boolean)
 
@@ -119,6 +124,29 @@ export default function Dashboard() {
         } finally {
             setSaving(false)
         }
+    }
+
+    const handleReplaceTrack = (trackId: string) => {
+        setDisplayTracks(currentDisplay => {
+            const trackIndex = currentDisplay.findIndex(t => t.id === trackId)
+            if (trackIndex === -1) return currentDisplay
+
+            const newDisplay = [...currentDisplay]
+
+            setReserveTracks(currentReserve => {
+                if (currentReserve.length > 0) {
+                    const nextReserve = [...currentReserve]
+                    const replacementTrack = nextReserve.shift()!
+                    newDisplay[trackIndex] = replacementTrack
+                    return nextReserve
+                } else {
+                    newDisplay.splice(trackIndex, 1)
+                    return currentReserve
+                }
+            })
+
+            return newDisplay
+        })
     }
 
     const handleDiscoverTab = async () => {
@@ -266,7 +294,7 @@ export default function Dashboard() {
                                                         </div>
 
                                                         {/* Save playlist button */}
-                                                        {tracks.length > 0 && activeTab === 'recommendations' && (
+                                                        {displayTracks.length > 0 && activeTab === 'recommendations' && (
                                                             <motion.div
                                                                 initial={{ opacity: 0, scale: 0.8 }}
                                                                 animate={{ opacity: 1, scale: 1 }}
@@ -370,7 +398,7 @@ export default function Dashboard() {
                                                     exit={{ opacity: 0, y: -20 }}
                                                     transition={{ duration: 0.3 }}
                                                 >
-                                                    <PlaylistGrid tracks={tracks} loading={loading} />
+                                                    <PlaylistGrid tracks={displayTracks} loading={loading} onReplaceTrack={handleReplaceTrack} />
                                                 </motion.div>
                                             ) : (
                                                 <motion.div

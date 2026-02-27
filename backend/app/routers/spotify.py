@@ -402,6 +402,19 @@ async def _get_personalized_recommendations(
             if len(final_tracks) >= limit * 2: # Keep enough for final shuffle
                 break
 
+    # Inject historical feedback markers into the final tracks for frontend UI persistence
+    for t in final_tracks:
+        tid = t.get("id", "")
+        artists = t.get("artists", [])
+        
+        is_liked = tid in liked_tracks or any(a.get("id") in liked_artists for a in artists)
+        is_disliked = tid in disliked_tracks or any(a.get("id") in disliked_artists for a in artists)
+        
+        if is_liked:
+            t["_feedback"] = "liked"
+        elif is_disliked:
+            t["_feedback"] = "disliked"
+
     # Final slice
     result = final_tracks[:limit]
     
@@ -523,7 +536,7 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20, db: 
     mood_profile = MOOD_PROFILES[mood]
 
     try:
-        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
+        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit, db)
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 
@@ -669,7 +682,7 @@ async def mood_recommendations(request: Request, db: Session = Depends(get_db)):
     mood_profile = MOOD_PROFILES[mood]
 
     try:
-        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit)
+        tracks = await _get_personalized_recommendations(access_token, mood_profile, limit, db)
     except Exception as e:
         return {"error": "Failed to get recommendations", "details": str(e)}
 

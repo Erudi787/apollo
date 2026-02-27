@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 interface PlaylistGridProps {
     tracks: SpotifyTrack[]
     loading: boolean
+    onReplaceTrack?: (trackId: string) => void
 }
 
 function LoadingSkeleton() {
@@ -23,7 +24,7 @@ function LoadingSkeleton() {
     )
 }
 
-export default function PlaylistGrid({ tracks, loading }: PlaylistGridProps) {
+export default function PlaylistGrid({ tracks, loading, onReplaceTrack }: PlaylistGridProps) {
     if (loading) {
         return <LoadingSkeleton />
     }
@@ -50,7 +51,7 @@ export default function PlaylistGrid({ tracks, loading }: PlaylistGridProps) {
             className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 sm:gap-6"
         >
             {tracks.map((track, index) => (
-                <TrackCard key={track.id || index} track={track} />
+                <TrackCard key={track.id || index} track={track} onReplace={onReplaceTrack} />
             ))}
         </motion.div>
     )

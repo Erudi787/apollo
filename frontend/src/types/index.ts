@@ -36,6 +36,7 @@ export interface SpotifyTrack {
     album: SpotifyAlbum;
     external_urls: { spotify: string };
     duration_ms: number;
+    _feedback?: 'liked' | 'disliked' | null;
 }
 
 export interface MoodProfile {

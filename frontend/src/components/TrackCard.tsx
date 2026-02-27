@@ -1,5 +1,5 @@
 import { useState, useRef, memo } from 'react'
-import { Play, Pause, ThumbsUp, ThumbsDown, Loader2 } from 'lucide-react'
+import { Play, Pause, ThumbsUp, ThumbsDown, Loader2, RefreshCw } from 'lucide-react'
 import type { SpotifyTrack } from '../types'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
 import { cn } from '../utils/utils'
@@ -7,11 +7,12 @@ import { moodAPI } from '../services/api'
 
 interface TrackCardProps {
     track: SpotifyTrack
+    onReplace?: (trackId: string) => void
 }
 
-const TrackCard = memo(function TrackCard({ track }: TrackCardProps) {
+const TrackCard = memo(function TrackCard({ track, onReplace }: TrackCardProps) {
     const [isPlaying, setIsPlaying] = useState(false)
-    const [feedback, setFeedback] = useState<'liked' | 'disliked' | null>(null)
+    const [feedback, setFeedback] = useState<'liked' | 'disliked' | null>(track._feedback || null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [audioSrc, setAudioSrc] = useState<string | null>(track.preview_url)
     const [isLoadingAudio, setIsLoadingAudio] = useState(false)
@@ -150,6 +151,23 @@ const TrackCard = memo(function TrackCard({ track }: TrackCardProps) {
                 initial={{ opacity: 0 }}
                 className="absolute inset-0 border border-white/10 rounded-2xl mix-blend-overlay pointer-events-none transition-opacity duration-500"
             />
+
+            {/* Top-Left Replace Button */}
+            {onReplace && (
+                <div className="absolute top-3 left-3 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <button
+                        onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            if (track.id) onReplace(track.id)
+                        }}
+                        className="p-2 rounded-full true-glass-strong transition-all duration-300 hover:scale-110 shadow-lg pointer-events-auto text-white/70 hover:text-white bg-black/40 hover:bg-black/60 hover:bg-red-500/20 hover:text-red-400 hover:border-red-500/50"
+                        title="Replace Track"
+                    >
+                        <RefreshCw size={16} />
+                    </button>
+                </div>
+            )}
 
             {/* Top-Right ML Feedback Controls */}
             <div className="absolute top-3 right-3 flex flex-col gap-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
