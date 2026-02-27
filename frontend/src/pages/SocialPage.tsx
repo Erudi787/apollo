@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import Navbar from '../components/Navbar'
 import api from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -10,6 +10,23 @@ export default function SocialPage() {
     const [searchResults, setSearchResults] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+
+    // Group consecutive items by the same user to prevent feed clutter
+    const groupedFeed = useMemo(() => {
+        return feed.reduce((acc, curr) => {
+            if (acc.length === 0) {
+                acc.push({ user: curr.user, activities: [curr] })
+            } else {
+                const lastGroup = acc[acc.length - 1]
+                if (lastGroup.user && curr.user && lastGroup.user.id === curr.user.id) {
+                    lastGroup.activities.push(curr)
+                } else {
+                    acc.push({ user: curr.user, activities: [curr] })
+                }
+            }
+            return acc
+        }, [] as any[])
+    }, [feed])
 
     useEffect(() => {
         if (toast) {
@@ -92,25 +109,34 @@ export default function SocialPage() {
 
                     {loading ? <p className="text-slate-500">Loading...</p> : (
                         <div className="space-y-6">
-                            {feed.length === 0 ? <p className="text-slate-500">No activity yet. Follow some friends!</p> : feed.map((item) => (
-                                <motion.div key={item.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 rounded-2xl">
+                            {groupedFeed.length === 0 ? <p className="text-slate-500">No activity yet. Follow some friends!</p> : groupedFeed.map((group: any) => (
+                                <motion.div key={group.activities[0].id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-6 rounded-2xl">
                                     <div className="flex items-center gap-4 mb-4">
-                                        {item.user?.image_url ? (
-                                            <img src={item.user.image_url} alt="Profile" className="w-10 h-10 rounded-full" />
+                                        {group.user?.image_url ? (
+                                            <img src={group.user.image_url} alt="Profile" className="w-10 h-10 rounded-full" />
                                         ) : (
                                             <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold">
-                                                {(item.user?.display_name || 'U')[0]}
+                                                {(group.user?.display_name || 'U')[0]}
                                             </div>
                                         )}
                                         <div>
-                                            <p className="font-semibold text-slate-800 dark:text-white">{item.user?.display_name}</p>
-                                            <p className="text-xs text-slate-500">{new Date(item.timestamp).toLocaleString()}</p>
+                                            <p className="font-semibold text-slate-800 dark:text-white">{group.user?.display_name}</p>
+                                            <p className="text-xs text-slate-500">{new Date(group.activities[0].timestamp).toLocaleString()}</p>
                                         </div>
                                     </div>
-                                    <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-xl">
-                                        <p className="text-slate-700 dark:text-slate-300">
-                                            Felt <span className="font-bold text-indigo-500">{item.mood}</span> and generated a {item.tracks?.length}-track playlist.
-                                        </p>
+                                    <div className="space-y-3">
+                                        {group.activities.map((item: any, idx: number) => (
+                                            <div key={item.id} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-slate-100 dark:border-slate-700/50 transition-all hover:bg-slate-100 dark:hover:bg-slate-800/80">
+                                                <p className="text-slate-700 dark:text-slate-300">
+                                                    Felt <span className="font-bold text-indigo-500">{item.mood}</span> and generated a {item.tracks?.length || 0}-track playlist.
+                                                </p>
+                                                {idx > 0 && (
+                                                    <span className="text-xs text-slate-400 font-medium bg-slate-200/50 dark:bg-slate-800 px-2 py-1 rounded-md w-fit">
+                                                        {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </motion.div>
                             ))}
