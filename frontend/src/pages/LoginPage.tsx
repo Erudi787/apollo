@@ -1,17 +1,32 @@
 import { useMemo, useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useInAppBrowser } from '../hooks/useInAppBrowser'
+import Toast from '../components/Toast'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
-import { ArrowUp, LogOut, AlertCircle } from 'lucide-react'
+import { ArrowUp, LogOut, AlertCircle, Github } from 'lucide-react'
 
 export default function LoginPage() {
     const { user, login, logout } = useAuth()
     const navigate = useNavigate()
+    const location = useLocation()
     const isInAppBrowser = useInAppBrowser()
 
     const [scrolled, setScrolled] = useState(false)
+    const [showAuthWarning, setShowAuthWarning] = useState(false)
     const buttonRef = useRef<HTMLDivElement>(null)
+
+    // Check URL parameters for Spotify Development Mode whitelisting errors
+    useEffect(() => {
+        const params = new URLSearchParams(location.search)
+        if (params.get('error') === 'whitelist') {
+            setShowAuthWarning(true)
+
+            // Clean up the URL quietly so refreshing doesn't re-trigger the toast
+            const newUrl = window.location.protocol + "//" + window.location.host + window.location.pathname
+            window.history.replaceState({ path: newUrl }, '', newUrl)
+        }
+    }, [location.search])
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -95,6 +110,13 @@ export default function LoginPage() {
 
     return (
         <div className="min-h-screen relative w-full overflow-x-hidden bg-black text-white font-sans selection:bg-brand-purple selection:text-white">
+
+            <Toast
+                show={showAuthWarning}
+                onClose={() => setShowAuthWarning(false)}
+                title="Authentication Denied"
+                message="Apollo is currently in Spotify Developer Mode. Your Spotify account must be manually whitelisted by the developer to log in."
+            />
 
             {/* Sticky Header for Landing Page */}
             <AnimatePresence>
@@ -418,7 +440,7 @@ export default function LoginPage() {
                             AI.pollo isn't just beautiful—it's engineered for speed. Built entirely with modern, high-performance web technologies to deliver a liquid-smooth experience from login to playback.
                         </p>
                         <div className="flex flex-wrap gap-3 pt-2">
-                            {['React 18', 'TypeScript', 'Tailwind CSS', 'Framer Motion', 'FastAPI', 'Python 3', 'Spotify API', 'OAuth 2.0', 'AsyncIO'].map((tech, i) => (
+                            {['React 18', 'TypeScript', 'Tailwind CSS', 'Framer Motion', 'FastAPI', 'Python 3', 'Spotify API', 'OAuth 2.0', 'SQLAlchemy'].map((tech, i) => (
                                 <motion.span
                                     key={tech}
                                     initial={{ opacity: 0, scale: 0.8 }}
@@ -435,6 +457,48 @@ export default function LoginPage() {
                     <div className="flex-1 w-full aspect-square sm:aspect-[4/3] true-glass-strong rounded-[2.5rem] border border-white/5 flex items-center justify-center p-8 relative overflow-hidden group">
                         <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 via-transparent to-transparent opacity-50 mix-blend-overlay transition-opacity duration-700 group-hover:opacity-80" />
                         <span className="text-8xl sm:text-9xl opacity-90 animate-float drop-shadow-2xl filter saturate-150" style={{ animationDelay: '2s' }}>⚡</span>
+                    </div>
+                </motion.div>
+
+                {/* Section API Warning */}
+                <motion.div
+                    variants={featureVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    className="max-w-4xl mx-auto w-full mt-10"
+                >
+                    <div className="true-glass-strong border border-brand-purple/20 bg-brand-purple/5 rounded-[2rem] p-8 sm:p-12 flex flex-col items-center text-center gap-6 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-t from-brand-purple/10 via-transparent to-transparent opacity-50" />
+
+                        <div className="w-16 h-16 rounded-2xl bg-brand-purple/20 border border-brand-purple/30 flex items-center justify-center text-brand-purple mb-2 relative z-10">
+                            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+
+                        <h2 className="font-display text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-t from-white to-white/60 tracking-tight relative z-10">
+                            Spotify Dev-Mode Quotas
+                        </h2>
+
+                        <p className="text-white/60 text-lg leading-relaxed max-w-2xl font-light relative z-10">
+                            Due to strict updates in Spotify's Developer policies targeting AI tools, Apollo is currently locked in <span className="text-white font-medium">Development Mode</span>.
+                            As of February 2026, Spotify specifically enforces a hard cap of exactly <span className="text-brand-purple font-bold">5 manually whitelisted accounts</span>. Unregistered users will face a redirect-loop failure upon authenticating.
+                        </p>
+
+                        <p className="text-white/40 text-sm font-medium mt-2 relative z-10 tracking-wide uppercase">
+                            Please request the developer to whitelist your email address.
+                        </p>
+
+                        <a
+                            href="https://github.com/Erudi787/apollo"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-4 px-6 py-3 rounded-full true-glass border border-white/10 flex items-center gap-3 text-white/80 hover:text-white hover:bg-white/10 transition-all active:scale-95 group relative z-10"
+                        >
+                            <Github className="w-5 h-5 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.8)] transition-all" />
+                            <span className="font-display font-bold tracking-wide mt-0.5">View Source on GitHub</span>
+                        </a>
                     </div>
                 </motion.div>
 

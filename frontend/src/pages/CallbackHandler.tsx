@@ -1,13 +1,21 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 
 export default function CallbackHandler() {
     const navigate = useNavigate()
+    const location = useLocation()
     const { checkAuth } = useAuth()
 
     useEffect(() => {
         const handleCallback = async () => {
+            // Check for explicit Spotify OAuth errors in the query parameters
+            const searchParams = new URLSearchParams(location.search)
+            if (searchParams.get('error') === 'access_denied') {
+                navigate('/?error=whitelist', { replace: true })
+                return
+            }
+
             // Extract tokens from the URL fragment hash
             const hash = window.location.hash.substring(1)
             const params = new URLSearchParams(hash)

@@ -118,8 +118,22 @@ def login():
 
 
 @router.get("/callback")
-async def callback(request: Request, code: str, state: str):
+async def callback(
+    request: Request, 
+    code: str = None, 
+    state: str = None, 
+    error: str = None
+):
     """Handle the Spotify OAuth callback — exchange code for tokens."""
+    frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+    # If Spotify explicitly denied authentication (e.g. user is not whitelisted in Dev Mode)
+    if error == "access_denied":
+        return RedirectResponse(url=f"{frontend_url}/?error=whitelist")
+
+    if not code or not state:
+        return RedirectResponse(url=f"{frontend_url}/?error=missing_args")
+
     # Verify CSRF state using HMAC signature (stateless — works on serverless)
     if not _verify_signed_state(state):
         return {"error": "State mismatch — possible CSRF attack"}

@@ -23,6 +23,10 @@ Here's what you can do with Apollo:
 - **Save to Spotify**: Easily save your custom mood playlists directly to your Spotify account with a single click.
 - **Mood History**: Keep track of your mood selections over time with visual history logs and charts to observe your emotional patterns.
 - **Social Discovery**: Share your mood playlists and discover what moods or songs are trending among other users.
+- **Zero-Latency Track Replacement Queue**: Instantly remove unwanted track recommendations and automatically hot-swap them utilizing an invisible, pre-fetched Reserve ML Queue without triggering loading spinners or recalcuating API data.
+- **Machine Learning Feedback System**: Train the algorithm on your specific tastes by interacting with the explicit "Thumbs Up / Thumbs Down" buttons. The internal engine permanently tracks your biases—instantly burying disliked songs and massively boosting the algorithm weights of your favorite artists.
+- **Editable Playlist Exports**: Name your collections whatever you desire before exporting them gracefully to your Spotify Library natively.
+- **Dynamic iTunes Fallback Audio**: Due to Spotify strictly deprecating the 30-second `preview_url` property in late 2024, Apollo dynamically executes cross-platform data-fetching against Apple's iTunes Search API to seamlessly supply missing immersive 30-second audio previews.
 - **Beautiful UI**: Enjoy a rich and interactive dashboard using a premium, responsive glassmorphic design and intuitive Framer Motion animations.
 - **Secure Authentication**: Uses robust Spotify OAuth Authorization Code Flow for seamless login perfectly adapted for stateless serverless environments.
 
@@ -57,23 +61,26 @@ During this project, I've picked up important skills and a better understanding 
 - **API Design**: Building clean, RESTful endpoints to connect the React frontend with complex backend processing logic.
 - **Vercel Deployments**: Configuring ASGI FastAPI applications to run seamlessly as serverless functions on Vercel.
 
-## 🚦 Spotify API Production Notice (2025/2026 Policy)
+## 🚦 Security & API Limitations
+
+> [!CAUTION]
+> **In-App Browser Blocks**: Google's modern OAuth 2.0 security policies strictly forbid authentication requests originating from embedded WebViews (e.g. clicking a link from inside the Facebook Messenger or Instagram apps). Attempting this will trigger a **Google 403 Error**. Apollo detects this and provides UI instructions for iOS/Android users to safely "Open in System Browser" (Safari/Chrome).
 
 > [!WARNING]
-> **Public Access Limitation**: Due to strict updates in Spotify's Developer Policy regarding AI and automated API usage, this application operates under Spotify's "Development Mode". 
+> **Spotify Production Limits**: Due to major updates in Spotify's Developer Policy regarding AI apps, this application operates under Spotify API's strictly limited **"Development Mode"**. 
 > 
-> Spotify currently enforces a hard cap of **5 authorized test users** for all indie applications. Transitioning to Extended Quota/Production Mode now strictly requires a legally registered business/LLC and a baseline of 250,000 Monthly Active Users (MAU).
+> As of the February 2026 policy changes, Spotify enforces a hard cap of **5 manually whitelisted test users** for all indie applications without a verified business contract. Unregistered accounts will experience a redirect loop failure upon attempting to login.
 > 
-> **How to Test the App:**
+> **How to Test Apollo:**
 > Because of this Catch-22 limitation, the live deployment link acts primarily as a UI/UX and architectural portfolio showcase. To actually authenticate and generate playlists yourself:
 > 1. Fork this repository and create your own Spotify Developer App (add your credentials to `.env`).
 > 2. Or, contact me to be manually whitelisted as one of the 5 authorized test users on the Spotify Developer Dashboard.
 
-## 💭 How can it be improved?
+## 💭 Future Roadmap & Improvements
 
-- Implement a machine-learning model that learns from user feedback (likes/dislikes on recommended tracks) for more advanced personalization.
-- Add more granular audio-feature filtering on top of the Curated Intersect Algorithm.
-- Introduce collaborative playlists where multiple users' top artists are combined into the recommendation pool.
+- **Spotify Blend Integration**: Introduce collaborative AI playlists where multiple users' "Top Artists" datasets are ingested into the Curated Intersect Algorithm to generate a perfect acoustic middle-ground for road trips or parties.
+- **Dynamic Track Lyrics**: Integrate the Musixmatch API to fetch and display synchronized lyrics directly inside the `TrackCard` component when a user plays the 30-second audio preview.
+- **Advanced Historical Analytics**: Expand the `/history` dashboard beyond just mood pie-charts to include interactive temporal heatmaps showing exactly what days and times certain moods spike in the user's life.
 
 ## 🚦 Running the Project
 
