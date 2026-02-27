@@ -36,7 +36,7 @@ async def get_mood_timeline(request: Request, db: Session = Depends(get_db), day
         timeline.append({
             "id": entry.id,
             "mood": mood,
-            "timestamp": entry.timestamp.isoformat(),
+            "timestamp": entry.timestamp.isoformat() + "Z",
             "playlist_id": entry.playlist_id,
             "tracks": json.loads(entry.tracks_preview_json) if entry.tracks_preview_json else []
         })

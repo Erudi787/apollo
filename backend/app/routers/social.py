@@ -38,7 +38,7 @@ async def get_social_feed(request: Request, db: Session = Depends(get_db)):
                 "image_url": user.image_url
             } if user else None,
             "mood": entry.mood_name,
-            "timestamp": entry.timestamp.isoformat(),
+            "timestamp": entry.timestamp.isoformat() + "Z",
             "tracks": json.loads(entry.tracks_preview_json) if entry.tracks_preview_json else []
         })
         
