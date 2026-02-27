@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -25,16 +25,19 @@ def _auth_header(access_token: str) -> dict:
     return {"Authorization": f"Bearer {access_token}"}
 
 
-def _get_token_or_error(request: Request) -> str | None:
+def _get_token_or_error(request: Request) -> str:
     # First try Authorization header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         return auth_header.split(" ")[1]
     
     # Fallback to cookies
-    return request.cookies.get("access_token")
+    token = request.cookies.get("access_token")
+    if token:
+        return token
+    raise HTTPException(status_code=401, detail="Not authenticated")
 
-async def _get_current_user_id(access_token: str, db: Session = None) -> str | None:
+async def _get_current_user_id(access_token: str, db: Session = None) -> str:
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
@@ -59,9 +62,14 @@ async def _get_current_user_id(access_token: str, db: Session = None) -> str | N
                     print(f"[AI.pollo] Auto-registered new user: {user_data.get('display_name')}")
             
             return user_id
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            raise HTTPException(status_code=401, detail="Spotify token expired")
+        print(f"[AI.pollo] Error fetching user profile: {e}")
+        raise HTTPException(status_code=401, detail="Could not identify user")
     except Exception as e:
         print(f"[AI.pollo] Error fetching user profile: {e}")
-        return None
+        raise HTTPException(status_code=401, detail="Could not identify user")
 
 
 async def _fetch_top_tracks(access_token: str, time_range: str = "short_term", limit: int = 10) -> list[dict]:

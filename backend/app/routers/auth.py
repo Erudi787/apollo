@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Response, Request, Depends
+from fastapi import APIRouter, Response, Request, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -259,11 +259,11 @@ async def refresh_token(request: Request):
         refresh = request.cookies.get("refresh_token")
 
     if not refresh:
-        return {"error": "No refresh token found"}, 401
+        raise HTTPException(status_code=401, detail="No refresh token found")
 
     new_access_token = await _do_refresh(refresh)
 
     if not new_access_token:
-        return {"error": "Failed to refresh token"}, 401
+        raise HTTPException(status_code=401, detail="Failed to refresh token")
 
     return {"access_token": new_access_token}

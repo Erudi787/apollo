@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
@@ -12,11 +12,11 @@ router = APIRouter(prefix="/api/history", tags=["history"])
 async def get_mood_timeline(request: Request, db: Session = Depends(get_db), days: int = 30):
     access_token = _get_token_or_error(request)
     if not access_token:
-        return {"error": "Not authenticated"}
+        raise HTTPException(status_code=401, detail="Not authenticated")
         
     user_id = await _get_current_user_id(access_token, db)
     if not user_id:
-        return {"error": "Could not identify user"}
+        raise HTTPException(status_code=401, detail="Could not identify user")
 
     start_date = datetime.utcnow() - timedelta(days=days)
     

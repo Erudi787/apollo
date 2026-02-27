@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
@@ -11,11 +11,11 @@ router = APIRouter(prefix="/api/social", tags=["social"])
 async def get_social_feed(request: Request, db: Session = Depends(get_db)):
     access_token = _get_token_or_error(request)
     if not access_token:
-        return {"error": "Not authenticated"}
+        raise HTTPException(status_code=401, detail="Not authenticated")
         
     user_id = await _get_current_user_id(access_token, db)
     if not user_id:
-        return {"error": "Could not identify user"}
+        raise HTTPException(status_code=401, detail="Could not identify user")
 
     # Get followed users
     following = db.query(models.Friendship).filter(models.Friendship.follower_id == user_id).all()
@@ -48,11 +48,11 @@ async def get_social_feed(request: Request, db: Session = Depends(get_db)):
 async def follow_user(request: Request, target_id: str, db: Session = Depends(get_db)):
     access_token = _get_token_or_error(request)
     if not access_token:
-        return {"error": "Not authenticated"}
+        raise HTTPException(status_code=401, detail="Not authenticated")
         
     user_id = await _get_current_user_id(access_token, db)
     if not user_id:
-        return {"error": "Could not identify user"}
+        raise HTTPException(status_code=401, detail="Could not identify user")
 
     if user_id == target_id:
         return {"error": "Cannot follow yourself"}

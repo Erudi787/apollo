@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { RefreshCw } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import MoodSelector from '../components/MoodSelector'
@@ -126,28 +126,15 @@ export default function Dashboard() {
         }
     }
 
-    const handleReplaceTrack = (trackId: string) => {
-        setDisplayTracks(currentDisplay => {
-            const trackIndex = currentDisplay.findIndex(t => t.id === trackId)
-            if (trackIndex === -1) return currentDisplay
-
-            const newDisplay = [...currentDisplay]
-
-            setReserveTracks(currentReserve => {
-                if (currentReserve.length > 0) {
-                    const nextReserve = [...currentReserve]
-                    const replacementTrack = nextReserve.shift()!
-                    newDisplay[trackIndex] = replacementTrack
-                    return nextReserve
-                } else {
-                    newDisplay.splice(trackIndex, 1)
-                    return currentReserve
-                }
-            })
-
-            return newDisplay
-        })
-    }
+    const handleReplaceTrack = useCallback((trackId: string) => {
+        if (reserveTracks.length > 0) {
+            const trackToInject = reserveTracks[0]
+            setReserveTracks(prev => prev.slice(1))
+            setDisplayTracks(prev => prev.map(t => t.id === trackId ? trackToInject : t))
+        } else {
+            setDisplayTracks(prev => prev.filter(t => t.id !== trackId))
+        }
+    }, [reserveTracks])
 
     const handleDiscoverTab = async () => {
         setActiveTab('discover')
