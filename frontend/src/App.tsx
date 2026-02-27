@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
+import { useInactivityTimer } from './hooks/useInactivityTimer'
 import LoginPage from './pages/LoginPage'
 import CallbackHandler from './pages/CallbackHandler'
 import Dashboard from './pages/Dashboard'
@@ -8,6 +9,9 @@ import SocialPage from './pages/SocialPage'
 
 function App() {
   const { user, loading } = useAuth()
+
+  // Initialize global inactivity timer to protect user sessions
+  useInactivityTimer()
 
   if (loading) {
     return (
