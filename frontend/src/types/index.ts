@@ -59,6 +59,8 @@ export interface RecommendationResponse {
     description: string;
     tracks: SpotifyTrack[];
     detected_from_text?: boolean;
+    error?: string;
+    details?: string;
 }
 
 export interface MoodRecommendationRequest {

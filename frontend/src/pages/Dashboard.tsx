@@ -66,12 +66,14 @@ export default function Dashboard() {
 
         try {
             const { data } = await moodAPI.getRecommendations(mood, 60)
+            if (data.error) throw new Error(data.details || data.error)
             setMoodDescription(data.description)
             setDisplayTracks(data.tracks.slice(0, 50))
             setReserveTracks(data.tracks.slice(50))
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to get recommendations:', err)
-            setError('Failed to load recommendations. Please try again.')
+            const errorMsg = err?.response?.data?.detail || err.message || 'Failed to load recommendations. Please try again.'
+            setError(errorMsg)
             setDisplayTracks([])
             setReserveTracks([])
         } finally {
@@ -88,14 +90,16 @@ export default function Dashboard() {
 
         try {
             const { data } = await moodAPI.getMoodRecommendations({ text, limit: 60 })
+            if (data.error) throw new Error(data.details || data.error)
             setSelectedMood(data.mood)
             setMoodDescription(data.description)
             setDisplayTracks(data.tracks.slice(0, 50))
             setReserveTracks(data.tracks.slice(50))
             setPlaylistName(`AI.pollo · ${data.mood.charAt(0).toUpperCase() + data.mood.slice(1)} Vibes`)
-        } catch (err) {
+        } catch (err: any) {
             console.error('Failed to analyze mood:', err)
-            setError('Could not analyze your mood. Try selecting one manually.')
+            const errorMsg = err?.response?.data?.detail || err.message || 'Could not analyze your mood. Try selecting one manually.'
+            setError(errorMsg)
             setDisplayTracks([])
             setReserveTracks([])
         } finally {
