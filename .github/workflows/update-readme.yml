@@ -1,0 +1,19 @@
+name: Refresh README Cache
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every night at midnight
+  workflow_dispatch: # Allows you to run it manually
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update timestamp
+        run: |
+          date > last_updated.txt
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add last_updated.txt
+          git commit -m "Weekly cache bust"
+          git push
