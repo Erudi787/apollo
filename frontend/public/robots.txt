@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Prevent crawlers from indexing specific API/utility paths (if any)
+# Disallow: /api/
+
+Sitemap: https://apollo-music.vercel.app/sitemap.xml
