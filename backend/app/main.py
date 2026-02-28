@@ -18,9 +18,18 @@ import uvicorn
 
 load_dotenv()
 
-# Idempotent: Automatically generate missing database tables in production if they don't exist yet
-# This bypasses Vercel's build phase environment variable limitations
-Base.metadata.create_all(bind=engine)
+# Programmatically run Alembic migrations on startup instead of Base.metadata.create_all
+# This ensures the `alembic_version` table is properly tracked in Vercel's PostgreSQL
+from alembic.config import Config
+from alembic import command
+
+try:
+    alembic_ini_path = os.path.join(os.path.dirname(__file__), "..", "alembic.ini")
+    alembic_cfg = Config(alembic_ini_path)
+    command.upgrade(alembic_cfg, "head")
+    print("[AI.pollo] Successfully ran Alembic migrations on cold boot.")
+except Exception as e:
+    print(f"[AI.pollo] Failed to run Alembic migrations: {e}")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
