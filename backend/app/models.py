@@ -35,7 +35,6 @@ class MoodEntry(Base):
     user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"))
     mood_name = Column(String, index=True) # e.g., 'Happy', 'Chill'
     timestamp = Column(DateTime, default=datetime.utcnow)
-    playlist_id = Column(String, nullable=True) # Spotify playlist ID
     tracks_preview_json = Column(Text, nullable=True) # JSON array of track data for previews without API call
 
     user = relationship("User", back_populates="mood_entries")

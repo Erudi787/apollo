@@ -1,4 +1,6 @@
 import sys
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 # Must be BEFORE any `from app.*` imports so Vercel serverless can resolve the package
@@ -8,15 +10,28 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.routers import auth, spotify, history, social
+from app.scheduler import retention_cleanup_loop
 import os
 import uvicorn
 
 load_dotenv()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Mounts infinite background daemon loops upon API startup and destroys them safely upon SIGTERM shutdown.
+    """
+    # Mount automated Database Data Retention sweeping policy logic (7-Day TTL)
+    retention_loop = asyncio.create_task(retention_cleanup_loop())
+    yield
+    # Safely de-construct background daemons when exiting FastAPI
+    retention_loop.cancel()
+    
 app = FastAPI(
     title="AI.pollo 𓏢",
     description="AI-powered mood-based music playlist recommender using Spotify API",
     version="0.1",
+    lifespan=lifespan,
 )
 
 # CORS
