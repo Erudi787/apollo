@@ -11,10 +11,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 from app.routers import auth, spotify, history, social
 from app.scheduler import retention_cleanup_loop
+from app.database import engine, Base
+from app import models
 import os
 import uvicorn
 
 load_dotenv()
+
+# Idempotent: Automatically generate missing database tables in production if they don't exist yet
+# This bypasses Vercel's build phase environment variable limitations
+Base.metadata.create_all(bind=engine)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
