@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
@@ -35,6 +35,7 @@ export default function BlendPage() {
     // Generation State
     const [generating, setGenerating] = useState(false);
     const [generatedTracks, setGeneratedTracks] = useState<any[]>([]);
+    const [reserveTracks, setReserveTracks] = useState<any[]>([]);
     const [selectedMood, setSelectedMood] = useState('happy');
 
     const pollInterval = useRef<any>(null);
@@ -107,9 +108,11 @@ export default function BlendPage() {
         try {
             const res = await api.post(`/api/blend/${roomId}/generate`, {
                 mood: selectedMood,
-                limit: 20
+                limit: 60
             });
-            setGeneratedTracks(res.data.tracks || []);
+            const tracks = res.data.tracks || [];
+            setGeneratedTracks(tracks.slice(0, 20));
+            setReserveTracks(tracks.slice(20));
             // Do NOT stop polling, so users can still see people join/leave if we remove the backend lock
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to generate playlist');
@@ -117,6 +120,16 @@ export default function BlendPage() {
             setGenerating(false);
         }
     };
+
+    const handleReplaceTrack = useCallback((trackId: string) => {
+        if (reserveTracks.length > 0) {
+            const trackToInject = reserveTracks[0];
+            setReserveTracks(prev => prev.slice(1));
+            setGeneratedTracks(prev => prev.map(t => t.id === trackId ? trackToInject : t));
+        } else {
+            setGeneratedTracks(prev => prev.filter(t => t.id !== trackId));
+        }
+    }, [reserveTracks]);
 
     const handleLeave = async () => {
         if (!roomId) return;
@@ -332,7 +345,7 @@ export default function BlendPage() {
                                     <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                                         {generatedTracks.map((track: any, idx: number) => (
                                             <div key={`${track.id}-${idx}`} className="transform scale-95 origin-top">
-                                                <TrackCard track={track} />
+                                                <TrackCard track={track} onReplace={handleReplaceTrack} />
                                             </div>
                                         ))}
                                     </div>
