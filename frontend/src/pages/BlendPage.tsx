@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
-import api from '../services/api';
+import api, { playlistAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrackCard from '../components/TrackCard';
 import { useAuth } from '../hooks/useAuth';
@@ -37,6 +37,10 @@ export default function BlendPage() {
     const [generatedTracks, setGeneratedTracks] = useState<any[]>([]);
     const [reserveTracks, setReserveTracks] = useState<any[]>([]);
     const [selectedMood, setSelectedMood] = useState('happy');
+
+    // Save State
+    const [saving, setSaving] = useState(false);
+    const [savedLink, setSavedLink] = useState<string | null>(null);
 
     const pollInterval = useRef<any>(null);
 
@@ -130,6 +134,28 @@ export default function BlendPage() {
             setGeneratedTracks(prev => prev.filter(t => t.id !== trackId));
         }
     }, [reserveTracks]);
+
+    const handleSavePlaylist = async () => {
+        if (!selectedMood || generatedTracks.length === 0 || saving) return;
+
+        setSaving(true);
+        try {
+            const trackUris = generatedTracks
+                .map(t => t.uri)
+                .filter(Boolean);
+
+            const finalName = `AI.pollo Blend · ${selectedMood.charAt(0).toUpperCase() + selectedMood.slice(1)} Vibes`;
+            const description = `Collaboratively curated by AI.pollo based on the overlapping tastes of ${session?.participants.length || 'your'} friends for ${selectedMood} vibes.`;
+
+            const { data } = await playlistAPI.create(finalName, trackUris, description, true);
+            setSavedLink(data.id ? `spotify:playlist:${data.id}` : data.external_urls?.spotify || null);
+        } catch (err) {
+            console.error('Failed to save blend playlist:', err);
+            setError('Failed to save playlist. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     const handleLeave = async () => {
         if (!roomId) return;
@@ -334,12 +360,32 @@ export default function BlendPage() {
                                             <h2 className="text-3xl font-display font-bold text-white mb-2">Group Blend Output</h2>
                                             <p className="text-slate-400">AI-optimized based on overlapping tastes of <span className="text-cyan-400">{session?.participants.length}</span> friends.</p>
                                         </div>
-                                        <button
-                                            onClick={() => navigate('/dashboard')}
-                                            className="text-cyan-400 hover:text-cyan-300 font-bold px-4 py-2 border border-cyan-400/30 rounded-lg hover:bg-cyan-900/20 transition-colors"
-                                        >
-                                            Go to Dashboard
-                                        </button>
+                                        <div className="flex flex-col sm:flex-row gap-3">
+                                            {savedLink ? (
+                                                <a
+                                                    href={savedLink}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="bg-[#1DB954] text-black font-bold px-6 py-2 rounded-lg hover:bg-[#1ed760] transition-colors hover:scale-105 active:scale-95 text-center flex items-center justify-center shadow-lg shadow-[#1DB954]/20"
+                                                >
+                                                    Open in Spotify
+                                                </a>
+                                            ) : (
+                                                <button
+                                                    onClick={handleSavePlaylist}
+                                                    disabled={saving || generatedTracks.length === 0}
+                                                    className="bg-brand-cyan/20 text-brand-cyan hover:bg-brand-cyan/30 font-bold px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 border border-brand-cyan/30"
+                                                >
+                                                    {saving ? 'Saving to Spotify...' : 'Save to Spotify'}
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => navigate('/dashboard')}
+                                                className="text-cyan-400 hover:text-cyan-300 font-bold px-4 py-2 border border-cyan-400/30 rounded-lg hover:bg-cyan-900/20 transition-colors"
+                                            >
+                                                Go to Dashboard
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
