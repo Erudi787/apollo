@@ -6,8 +6,8 @@ from app.models import MoodEntry
 
 logger = logging.getLogger(__name__)
 
-# Configurable generic TTL policy, safely defaulting to 7 Days
-RETENTION_PERIOD_DAYS = 7
+# Configurable generic TTL policy, safely defaulting to 365 Days to support the Heatmap UI
+RETENTION_PERIOD_DAYS = 365
 # Run the purge loop every 12 hours (43200 seconds)
 PURGE_INTERVAL_SECONDS = 43200 
 

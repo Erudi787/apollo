@@ -17,12 +17,14 @@ const TrackCard = memo(function TrackCard({ track, onReplace }: TrackCardProps) 
     const [audioSrc, setAudioSrc] = useState<string | null>(track.preview_url)
     const [isLoadingAudio, setIsLoadingAudio] = useState(false)
     const [audioProgress, setAudioProgress] = useState(0)
+
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const albumImage = track.album?.images?.[0]?.url || track.album?.images?.[1]?.url
     const artistNames = track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'
     const primaryArtistId = track.artists?.[0]?.id || ''
     const spotifyUrl = track.external_urls?.spotify
+
 
     const handleFeedback = async (e: React.MouseEvent, type: 'liked' | 'disliked') => {
         e.preventDefault()

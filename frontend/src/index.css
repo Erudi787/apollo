@@ -238,3 +238,55 @@ body,
   min-height: 100vh;
   margin: 0;
 }
+
+/* -------------------------------------------------------------------------- */
+/* React Calendar Heatmap Overrides                                           */
+/* -------------------------------------------------------------------------- */
+.react-calendar-heatmap text {
+  font-size: 10px;
+  fill: rgba(255, 255, 255, 0.4);
+  font-family: var(--font-display);
+}
+
+.react-calendar-heatmap .color-empty {
+  fill: rgba(255, 255, 255, 0.05) !important;
+  rx: 3;
+  ry: 3;
+}
+
+.react-calendar-heatmap .color-scale-1 {
+  fill: rgba(0, 242, 254, 0.3) !important;
+  rx: 3;
+  ry: 3;
+}
+
+.react-calendar-heatmap .color-scale-2 {
+  fill: rgba(0, 242, 254, 0.6) !important;
+  rx: 3;
+  ry: 3;
+}
+
+.react-calendar-heatmap .color-scale-3 {
+  fill: rgba(0, 242, 254, 0.9) !important;
+  rx: 3;
+  ry: 3;
+}
+
+.react-calendar-heatmap .color-scale-4 {
+  fill: #00f2fe !important;
+  rx: 3;
+  ry: 3;
+}
+
+.react-calendar-heatmap .color-scale-5 {
+  fill: #ffffff !important;
+  rx: 3;
+  ry: 3;
+}
+
+/* Max activity */
+
+.react-calendar-heatmap rect:hover {
+  stroke: #ffffff !important;
+  stroke-width: 1px !important;
+}

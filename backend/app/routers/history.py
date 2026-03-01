@@ -9,7 +9,7 @@ import json
 router = APIRouter(prefix="/api/history", tags=["history"])
 
 @router.get("/timeline")
-async def get_mood_timeline(request: Request, db: Session = Depends(get_db), days: int = 30):
+async def get_mood_timeline(request: Request, db: Session = Depends(get_db), days: int = 365):
     access_token = _get_token_or_error(request)
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -28,20 +28,27 @@ async def get_mood_timeline(request: Request, db: Session = Depends(get_db), day
     # Aggregate data
     mood_counts = {}
     timeline = []
+    heatmap_data = {}
     
     for entry in entries:
         mood = entry.mood_name
         mood_counts[mood] = mood_counts.get(mood, 0) + 1
         
+        # Format date for heatmap (YYYY-MM-DD)
+        date_str = entry.timestamp.strftime("%Y-%m-%d")
+        heatmap_data[date_str] = heatmap_data.get(date_str, 0) + 1
+        
         timeline.append({
             "id": entry.id,
             "mood": mood,
             "timestamp": entry.timestamp.isoformat() + "Z",
-            "playlist_id": entry.playlist_id,
             "tracks": json.loads(entry.tracks_preview_json) if entry.tracks_preview_json else []
         })
         
+    heatmap_array = [{"date": k, "count": v} for k, v in heatmap_data.items()]
+        
     return {
         "mood_distribution": mood_counts,
-        "recent_entries": timeline
+        "recent_entries": timeline,
+        "heatmap": heatmap_array
     }
