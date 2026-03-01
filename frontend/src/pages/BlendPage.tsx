@@ -109,6 +109,7 @@ export default function BlendPage() {
     const handleGenerate = async () => {
         setGenerating(true);
         setError('');
+        setSavedLink(null);
         try {
             const res = await api.post(`/api/blend/${roomId}/generate`, {
                 mood: selectedMood,
@@ -373,7 +374,7 @@ export default function BlendPage() {
                                             ) : (
                                                 <button
                                                     onClick={handleSavePlaylist}
-                                                    disabled={saving || generatedTracks.length === 0}
+                                                    disabled={saving || generatedTracks.length === 0 || generating}
                                                     className="bg-brand-cyan/20 text-brand-cyan hover:bg-brand-cyan/30 font-bold px-6 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:scale-105 active:scale-95 border border-brand-cyan/30"
                                                 >
                                                     {saving ? 'Saving to Spotify...' : 'Save to Spotify'}
