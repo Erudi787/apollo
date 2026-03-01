@@ -110,8 +110,7 @@ export default function BlendPage() {
                 limit: 20
             });
             setGeneratedTracks(res.data.tracks || []);
-            // Disable polling once generated
-            if (pollInterval.current) clearInterval(pollInterval.current);
+            // Do NOT stop polling, so users can still see people join/leave if we remove the backend lock
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to generate playlist');
         } finally {
@@ -211,85 +210,74 @@ export default function BlendPage() {
                                 <div className="text-5xl font-mono font-black text-white tracking-[0.2em]">{roomId}</div>
                             </div>
 
-                            {!generatedTracks.length && (
-                                <div className="flex-1 max-w-sm w-full">
-                                    {isHost ? (
-                                        <div className="space-y-3">
-                                            <select
-                                                value={selectedMood}
-                                                onChange={e => setSelectedMood(e.target.value)}
-                                                className="w-full bg-slate-900 border border-slate-700 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-cyan-500"
-                                            >
-                                                {moods.map((m) => (
-                                                    <option key={m} value={m}>
-                                                        {m.split('_')
-                                                            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-                                                            .join(' ')} Vibe
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <button
-                                                onClick={handleGenerate}
-                                                disabled={generating}
-                                                className="w-full bg-cyan-500 text-slate-900 font-black py-3 rounded-xl hover:bg-cyan-400 hover:shadow-lg hover:shadow-cyan-500/25 transition-all text-lg flex justify-center items-center"
-                                            >
-                                                {generating ? (
-                                                    <span className="flex items-center gap-2">
-                                                        <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
-                                                        Computing Consensus...
-                                                    </span>
-                                                ) : 'Generate Group Blend'}
-                                            </button>
-                                        </div>
-                                    ) : (
-                                        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
-                                            <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                                            <p className="text-slate-300 font-medium">Waiting for Host to Generate...</p>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-end mt-4">
-                                        <button
-                                            onClick={handleLeave}
-                                            disabled={loading}
-                                            className="text-red-400 hover:text-red-300 text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-lg hover:bg-red-400/10 transition-colors"
+                            <div className="flex-1 max-w-sm w-full">
+                                {isHost ? (
+                                    <div className="space-y-3">
+                                        <select
+                                            value={selectedMood}
+                                            onChange={e => setSelectedMood(e.target.value)}
+                                            className="w-full bg-slate-900 border border-slate-700 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-cyan-500"
                                         >
-                                            Leave Session
+                                            {moods.map((m) => (
+                                                <option key={m} value={m}>
+                                                    {m.split('_')
+                                                        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                                                        .join(' ')} Vibe
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            onClick={handleGenerate}
+                                            disabled={generating}
+                                            className="w-full bg-cyan-500 text-slate-900 font-black py-3 rounded-xl hover:bg-cyan-400 hover:shadow-lg hover:shadow-cyan-500/25 transition-all text-lg flex justify-center items-center"
+                                        >
+                                            {generating ? (
+                                                <span className="flex items-center gap-2">
+                                                    <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                                    Computing Consensus...
+                                                </span>
+                                            ) : (generatedTracks.length > 0 ? 'Regenerate Blend' : 'Generate Group Blend')}
                                         </button>
                                     </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Results Grid OR Waiting Room Avatars */}
-                        {generatedTracks.length > 0 ? (
-                            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-                                <div className="flex justify-between items-end">
-                                    <div>
-                                        <h2 className="text-3xl font-display font-bold text-white mb-2">Your Group Blend</h2>
-                                        <p className="text-slate-400">AI-optimized based on overlapping tastes of {session?.participants.length} friends.</p>
+                                ) : (
+                                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 text-center">
+                                        {generating ? (
+                                            <>
+                                                <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                                                <p className="text-slate-300 font-medium tracking-wide">AI.pollo is analyzing tastes...</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                {generatedTracks.length > 0 ? (
+                                                    <p className="text-emerald-400 font-bold uppercase tracking-widest text-sm">Blend Complete!</p>
+                                                ) : (
+                                                    <p className="text-slate-400 font-medium">Waiting for Host to Generate...</p>
+                                                )}
+                                            </>
+                                        )}
                                     </div>
+                                )}
+                                <div className="flex justify-end mt-4">
                                     <button
-                                        onClick={() => navigate('/dashboard')}
-                                        className="text-cyan-400 hover:text-cyan-300 font-bold px-4 py-2 border border-cyan-400/30 rounded-lg"
+                                        onClick={handleLeave}
+                                        disabled={loading}
+                                        className="text-red-400 hover:text-red-300 text-sm font-bold uppercase tracking-wider px-4 py-2 rounded-lg hover:bg-red-400/10 transition-colors"
                                     >
-                                        Back to Dashboard
+                                        Leave Session
                                     </button>
                                 </div>
+                            </div>
+                        </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {generatedTracks.map((track: any, idx: number) => (
-                                        <TrackCard
-                                            key={`${track.id}-${idx}`}
-                                            track={track}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.div>
-                        ) : (
+                        {/* Combined Results and Participants View */}
+                        <div className="space-y-12">
+                            {/* Participants Grid Always Visible */}
                             <div className="glass-card p-8 rounded-3xl">
-                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                    <span>Participants</span>
-                                    <span className="bg-slate-700 text-xs py-1 px-3 rounded-full">{session?.participants.length || 0} Joined</span>
+                                <h3 className="text-xl font-display font-bold text-white mb-6 flex items-center gap-2">
+                                    <span>Joined Participants</span>
+                                    <span className="bg-slate-700/50 border border-slate-600 font-sans text-xs py-1 px-3 rounded-full text-slate-300">
+                                        {session?.participants.length || 0} Ready
+                                    </span>
                                 </h3>
 
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -324,7 +312,33 @@ export default function BlendPage() {
                                     </AnimatePresence>
                                 </div>
                             </div>
-                        )}
+
+                            {/* Results Grid Visible ONLY When Tracks Exist */}
+                            {generatedTracks.length > 0 && (
+                                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <h2 className="text-3xl font-display font-bold text-white mb-2">Group Blend Output</h2>
+                                            <p className="text-slate-400">AI-optimized based on overlapping tastes of <span className="text-cyan-400">{session?.participants.length}</span> friends.</p>
+                                        </div>
+                                        <button
+                                            onClick={() => navigate('/dashboard')}
+                                            className="text-cyan-400 hover:text-cyan-300 font-bold px-4 py-2 border border-cyan-400/30 rounded-lg hover:bg-cyan-900/20 transition-colors"
+                                        >
+                                            Go to Dashboard
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                                        {generatedTracks.map((track: any, idx: number) => (
+                                            <div key={`${track.id}-${idx}`} className="transform scale-95 origin-top">
+                                                <TrackCard track={track} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </div>
                     </div>
                 )}
             </main>

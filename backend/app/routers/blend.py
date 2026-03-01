@@ -173,8 +173,8 @@ async def generate_blend_playlist(code: str, request: Request, db: Session = Dep
             )
             db.add(entry)
             
-        # Lock down the multiplayer room so new users can't join after generation
-        session.is_active = False
+        # Allow room to remain active so participants can dynamically drop in/out
+        # and re-generate ad-infinitum. 
         db.commit()
 
     return {
