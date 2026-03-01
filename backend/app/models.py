@@ -64,3 +64,35 @@ class TrackFeedback(Base):
     timestamp = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="feedback")
+
+class BlendSession(Base):
+    """
+    Represents an active multiplayer matchmaking room generated via an invite shortcode.
+    """
+    __tablename__ = "blend_sessions"
+
+    id = Column(String, primary_key=True, index=True) # e.g. "XF92A"
+    host_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
+
+    participants = relationship("BlendParticipant", back_populates="session", cascade="all, delete-orphan")
+    host = relationship("User", foreign_keys=[host_id])
+
+class BlendParticipant(Base):
+    """
+    Links a user to a specific BlendSession.
+    Temporarily stores their ephemeral Spotify auth tokens so the Host's 
+    `Generate` trigger has legal API permissions to query their Top Artists dataset.
+    """
+    __tablename__ = "blend_participants"
+
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(String, ForeignKey("blend_sessions.id", ondelete="CASCADE"), index=True)
+    user_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    access_token = Column(Text, nullable=False)
+    refresh_token = Column(Text, nullable=False)
+    joined_at = Column(DateTime, default=datetime.utcnow)
+
+    session = relationship("BlendSession", back_populates="participants")
+    user = relationship("User", foreign_keys=[user_id])

@@ -6,6 +6,7 @@ import CallbackHandler from './pages/CallbackHandler'
 import Dashboard from './pages/Dashboard'
 import HistoryPage from './pages/HistoryPage'
 import SocialPage from './pages/SocialPage'
+import BlendPage from './pages/BlendPage'
 
 function App() {
   const { user, loading } = useAuth()
@@ -45,6 +46,14 @@ function App() {
       <Route
         path="/social"
         element={user ? <SocialPage /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/blend"
+        element={user ? <BlendPage /> : <Navigate to="/" replace />}
+      />
+      <Route
+        path="/blend/:roomId"
+        element={user ? <BlendPage /> : <Navigate to="/" replace />}
       />
       <Route
         path="/login"

@@ -433,8 +433,239 @@ async def _get_personalized_recommendations(
     return result
 
 
-# ============================================================
-# User Endpoints
+async def _get_group_recommendations(
+    access_tokens: list[str], mood_profile: dict, limit: int = 20, db: Session = None
+) -> list[dict]:
+    """
+    Collaborative version of the Curated Intersect Algorithm.
+    Ingests multiple Spotify auth tokens, building a multi-user taste consensus pool.
+    Heavily boosts tracks/artists that overlap between multiple users in the session.
+    """
+    import time
+    t_start = time.time()
+    
+    all_liked_tracks = set()
+    all_disliked_tracks = set()
+    all_liked_artists = set()
+    all_disliked_artists = set()
+    
+    user_taste_profiles = [] # List of sets containing artist IDs
+
+    # Step 1: Fetch taste profiles and feedback for ALL participants concurrently
+    async def _fetch_user_profile(token: str):
+        headers = _auth_header(token)
+        async with httpx.AsyncClient(headers=headers, timeout=15.0) as client:
+            user_id = None
+            try: # Get Profile
+                user_resp = await client.get("https://api.spotify.com/v1/me")
+                if user_resp.status_code == 200:
+                    user_id = user_resp.json().get("id")
+            except Exception:
+                pass
+                
+            # DB feedback
+            liked_t, disliked_t, liked_a, disliked_a = set(), set(), set(), set()
+            if user_id and db:
+                feedbacks = db.query(TrackFeedback).filter(TrackFeedback.user_id == user_id).all()
+                for fb in feedbacks:
+                    if fb.is_liked:
+                        if fb.track_id: liked_t.add(fb.track_id)
+                        if fb.artist_id: liked_a.add(fb.artist_id)
+                    else:
+                        if fb.track_id: disliked_t.add(fb.track_id)
+                        if fb.artist_id: disliked_a.add(fb.artist_id)
+            
+            # Spotify Taste
+            async def _get_followed():
+                try:
+                    r = await client.get("https://api.spotify.com/v1/me/following", params={"type": "artist", "limit": 50})
+                    if r.status_code == 200:
+                        return [a["id"] for a in r.json().get("artists", {}).get("items", []) if "id" in a]
+                except Exception: return []
+                return []
+            
+            async def _get_top(time_range: str):
+                try:
+                    r = await client.get("https://api.spotify.com/v1/me/top/tracks", params={"time_range": time_range, "limit": 50})
+                    if r.status_code == 200:
+                        a_ids = []
+                        for t in r.json().get("items", []):
+                            for a in t.get("artists", []):
+                                if "id" in a and a["id"] not in a_ids:
+                                    a_ids.append(a["id"])
+                        return a_ids
+                except Exception: return []
+                return []
+                
+            followed, top = await asyncio.gather(_get_followed(), _get_top("short_term"))
+            if not top: top = await _get_top("medium_term")
+            
+            return {
+                "user_id": user_id,
+                "taste_set": set(followed + top),
+                "liked_t": liked_t, "disliked_t": disliked_t,
+                "liked_a": liked_a, "disliked_a": disliked_a
+            }
+
+    profiles = await asyncio.gather(*[_fetch_user_profile(t) for t in access_tokens])
+    active_user_ids = []
+    
+    for p in profiles:
+        user_taste_profiles.append(p["taste_set"])
+        all_liked_tracks.update(p["liked_t"])
+        all_disliked_tracks.update(p["disliked_t"])
+        all_liked_artists.update(p["liked_a"])
+        all_disliked_artists.update(p["disliked_a"])
+        if p.get("user_id"):
+            active_user_ids.append(p["user_id"])
+        
+    print(f"[AI.pollo Blend] Merged {len(access_tokens)} profiles into consensus pool.")
+
+    # Step 2: Search for human-curated playlists matching the mood
+    search_queries = []
+    for keyword in mood_profile.get("search_descriptors", [""])[:2]:
+        for genre in mood_profile.get("genres", [""])[:2]:
+            search_queries.append(f"{keyword} {genre}".strip())
+    
+    playlist_ids = []
+    banned_terms = mood_profile.get("banned_playlist_terms", [])
+    
+    # We use the first token to perform general Spotify queries
+    host_headers = _auth_header(access_tokens[0])
+    async with httpx.AsyncClient(headers=host_headers, timeout=15.0) as client:
+        async def _search_spotify_playlists(q: str):
+            try:
+                r = await client.get(
+                    "https://api.spotify.com/v1/search", 
+                    params={"q": q, "type": "playlist", "limit": 5}
+                )
+                if r.status_code == 200:
+                    s_ids = []
+                    for p in r.json().get("playlists", {}).get("items", []):
+                        if not p or not p.get("id"): continue
+                        title = (p.get("name") or "").lower()
+                        if any(term in title for term in banned_terms): continue
+                        s_ids.append(p["id"])
+                    return s_ids
+            except Exception: pass
+            return []
+
+        results = await asyncio.gather(*[_search_spotify_playlists(q) for q in search_queries])
+        for res in results: playlist_ids.extend(res)
+        playlist_ids = list(set(playlist_ids))
+        
+        if not playlist_ids: return []
+
+        # Step 3: Fetch tracks from all matching playlists in parallel
+        async def _get_playlist_tracks(pid: str):
+            try:
+                r = await client.get(
+                    f"https://api.spotify.com/v1/playlists/{pid}/tracks", 
+                    params={"limit": 100}
+                )
+                if r.status_code == 200:
+                    items = r.json().get("items", [])
+                    return [item["track"] for item in items if item.get("track") and item["track"].get("id")]
+            except Exception: pass
+            return []
+            
+        playlist_track_lists = await asyncio.gather(*[_get_playlist_tracks(pid) for pid in playlist_ids])
+
+    # Step 4: Pool, score, and dedup tracks using GROUP CONSENSUS
+    track_scores: dict[str, int] = {}
+    track_dict: dict[str, dict] = {}
+    dedup_map: set[tuple[str, str]] = set()
+
+    for track_list in playlist_track_lists:
+        for t in track_list:
+            tid = t.get("id")
+            if not tid or _is_junk_track(t): continue
+                
+            track_name = (t.get("name") or "").lower().strip()
+            artists = t.get("artists", [])
+            primary_artist = (artists[0].get("name") or "").lower().strip() if artists else ""
+                
+            dedup_key = (track_name, primary_artist)
+            if dedup_key in dedup_map and tid not in track_dict:
+                continue
+                
+            dedup_map.add(dedup_key)
+            
+            if tid not in track_dict:
+                track_dict[tid] = t
+                track_scores[tid] = 0
+                
+                # ML Penalty: If ANY user dislikes it, we veto it
+                if tid in all_disliked_tracks or any(a.get("id") in all_disliked_artists for a in artists):
+                    continue
+                
+                # Group Consensus Scoring
+                overlap_count = 0
+                for artist in artists:
+                    a_id = artist.get("id")
+                    if not a_id: continue
+                    
+                    # Count how many users have this artist in their taste profile
+                    matches = sum(1 for profile_set in user_taste_profiles if a_id in profile_set)
+                    if matches > overlap_count:
+                        overlap_count = matches
+                
+                # Dynamic Multiplayer Multiplier:
+                # 1 match = +100
+                # 2 matches = +100 + 50
+                # 3 matches = +100 + 50 + 50
+                if overlap_count > 0:
+                    track_scores[tid] += 100 + ((overlap_count - 1) * 50)
+                    
+                # Explicit Boost
+                explicit_boost = mood_profile.get("explicit_boost", 0)
+                if explicit_boost > 0 and t.get("explicit", False):
+                    track_scores[tid] += explicit_boost
+                    
+                # ML Like Boost
+                if tid in all_liked_tracks: track_scores[tid] += 50
+                if any(a.get("id") in all_liked_artists for a in artists): track_scores[tid] += 200
+            
+            # Playlist consensus
+            track_scores[tid] += 1
+
+    # Step 5: Sort and Shuffle
+    score_tiers: dict[int, list[dict]] = {}
+    for tid, score in track_scores.items():
+        if score not in score_tiers:
+            score_tiers[score] = []
+        score_tiers[score].append(track_dict[tid])
+        
+    sorted_scores = sorted(score_tiers.keys(), reverse=True)
+    final_tracks = []
+    
+    for score in sorted_scores:
+        tier_tracks = score_tiers[score]
+        random.shuffle(tier_tracks)
+        final_tracks.extend(tier_tracks)
+        if len(final_tracks) >= limit * 2:
+            break
+
+    # Inject Historical Markers
+    for t in final_tracks:
+        tid = t.get("id", "")
+        artists = t.get("artists", [])
+        
+        is_liked = tid in all_liked_tracks or any(a.get("id") in all_liked_artists for a in artists)
+        is_disliked = tid in all_disliked_tracks or any(a.get("id") in all_disliked_artists for a in artists)
+        
+        if is_liked:
+            t["_feedback"] = "liked"
+        elif is_disliked:
+            t["_feedback"] = "disliked"
+
+    result = final_tracks[:limit]
+    
+    t_total = time.time() - t_start
+    print(f"[AI.pollo Blend] Yielded {len(result)} consensus tracks in {t_total:.2f}s")
+    return result
+
+
 # ============================================================
 
 @router.get("/user/profile")

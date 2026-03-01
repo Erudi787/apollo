@@ -24,6 +24,7 @@ export default function Navbar() {
                             <Link to="/dashboard" className={`font-medium transition-colors ${location.pathname === '/dashboard' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>Dashboard</Link>
                             <Link to="/history" className={`font-medium transition-colors ${location.pathname === '/history' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>History</Link>
                             <Link to="/social" className={`font-medium transition-colors ${location.pathname === '/social' ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>Social</Link>
+                            <Link to="/blend" className={`font-medium transition-colors ${location.pathname.startsWith('/blend') ? 'text-indigo-500' : 'text-slate-600 dark:text-slate-400 hover:text-indigo-400'}`}>Blend</Link>
                         </div>
                     )}
 
