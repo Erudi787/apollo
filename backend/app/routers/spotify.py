@@ -776,6 +776,8 @@ async def get_recommendations(request: Request, mood: str, limit: int = 20, db: 
 
     try:
         tracks = await _get_personalized_recommendations(access_token, mood_profile, limit, db)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
 
@@ -922,6 +924,8 @@ async def mood_recommendations(request: Request, db: Session = Depends(get_db)):
 
     try:
         tracks = await _get_personalized_recommendations(access_token, mood_profile, limit, db)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get recommendations: {str(e)}")
 

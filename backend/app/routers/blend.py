@@ -158,6 +158,8 @@ async def generate_blend_playlist(code: str, request: Request, db: Session = Dep
     
     try:
         tracks = await _get_group_recommendations(tokens, mood_profile, limit, db)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to generate group blend: {str(e)}")
         

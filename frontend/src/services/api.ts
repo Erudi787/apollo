@@ -38,6 +38,20 @@ api.interceptors.request.use(
 );
 
 // Response interceptor for automatic token refresh
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (token: string) => void; reject: (err: any) => void }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+    failedQueue.forEach(prom => {
+        if (error) {
+            prom.reject(error);
+        } else {
+            prom.resolve(token!);
+        }
+    });
+    failedQueue = [];
+};
+
 api.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
@@ -45,7 +59,23 @@ api.interceptors.response.use(
 
         // Prevent infinite retry loops
         if (error.response?.status === 401 && !originalRequest._retry) {
+            if (isRefreshing) {
+                return new Promise(function (resolve, reject) {
+                    failedQueue.push({ resolve, reject });
+                }).then(token => {
+                    if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+                        originalRequest.headers.set('Authorization', `Bearer ${token}`);
+                    } else {
+                        originalRequest.headers.Authorization = `Bearer ${token}`;
+                    }
+                    return api.request(originalRequest);
+                }).catch(err => {
+                    return Promise.reject(err);
+                });
+            }
+
             originalRequest._retry = true;
+            isRefreshing = true;
 
             try {
                 const refreshToken = localStorage.getItem('refresh_token');
@@ -60,14 +90,24 @@ api.interceptors.response.use(
 
                 // Save new token and retry failed request
                 localStorage.setItem('access_token', newAccessToken);
-                originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                processQueue(null, newAccessToken);
+
+                if (originalRequest.headers && typeof originalRequest.headers.set === 'function') {
+                    originalRequest.headers.set('Authorization', `Bearer ${newAccessToken}`);
+                } else {
+                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                }
+
                 return api.request(originalRequest);
             } catch (err) {
+                processQueue(err, null);
                 // Refresh failed entirely, clear storage and kick to login
                 localStorage.removeItem('access_token');
                 localStorage.removeItem('refresh_token');
                 window.location.href = '/login';
                 return Promise.reject(err);
+            } finally {
+                isRefreshing = false;
             }
         }
         return Promise.reject(error);

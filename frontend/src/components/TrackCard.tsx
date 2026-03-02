@@ -1,4 +1,4 @@
-import { useState, useRef, memo } from 'react'
+import { useState, useEffect, useRef, memo } from 'react'
 import { Play, Pause, ThumbsUp, ThumbsDown, Loader2, RefreshCw } from 'lucide-react'
 import type { SpotifyTrack } from '../types'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
@@ -19,6 +19,33 @@ const TrackCard = memo(function TrackCard({ track, onReplace }: TrackCardProps) 
     const [audioProgress, setAudioProgress] = useState(0)
 
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const isMounted = useRef(true)
+
+    // Global audio manager for exclusive playback and unmount cleanup
+    useEffect(() => {
+        isMounted.current = true;
+        const handleStopAudio = (e: Event) => {
+            const customEvent = e as CustomEvent;
+            if (audioRef.current && customEvent.detail?.src !== audioRef.current.src) {
+                audioRef.current.pause()
+                audioRef.current.currentTime = 0
+                setIsPlaying(false) // Force UI pause
+            }
+        }
+
+        document.addEventListener('apollo-stop-audio', handleStopAudio)
+
+        return () => {
+            isMounted.current = false;
+            document.removeEventListener('apollo-stop-audio', handleStopAudio)
+            if (audioRef.current) {
+                audioRef.current.pause()
+                audioRef.current.removeAttribute('src')
+                audioRef.current.load()
+                audioRef.current = null
+            }
+        }
+    }, [])
 
     const albumImage = track.album?.images?.[0]?.url || track.album?.images?.[1]?.url
     const artistNames = track.artists?.map((a) => a.name).join(', ') || 'Unknown Artist'
@@ -60,6 +87,9 @@ const TrackCard = memo(function TrackCard({ track, onReplace }: TrackCardProps) 
                 const query = `${track.name} ${track.artists?.[0]?.name || ''}`
                 const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`)
                 const data = await res.json()
+
+                if (!isMounted.current) return;
+
                 if (data.results && data.results.length > 0 && data.results[0].previewUrl) {
                     currentSrc = data.results[0].previewUrl
                     setAudioSrc(currentSrc)
@@ -70,18 +100,16 @@ const TrackCard = memo(function TrackCard({ track, onReplace }: TrackCardProps) 
                 }
             } catch (err) {
                 console.error("Failed to fetch iTunes preview:", err)
-                setIsLoadingAudio(false)
+                if (isMounted.current) setIsLoadingAudio(false)
                 return
             }
-            setIsLoadingAudio(false)
+            if (isMounted.current) setIsLoadingAudio(false)
         }
 
-        if (!currentSrc) return
+        if (!currentSrc || !isMounted.current) return
 
-        document.querySelectorAll('audio').forEach((a) => {
-            a.pause()
-            a.currentTime = 0
-        })
+        // Dispatch global event to force all OTHER TrackCards to instantly pause and reset
+        document.dispatchEvent(new CustomEvent('apollo-stop-audio', { detail: { src: currentSrc } }))
 
         if (!audioRef.current || audioRef.current.src !== currentSrc) {
             audioRef.current = new Audio(currentSrc)
