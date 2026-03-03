@@ -36,6 +36,27 @@ except Exception as e:
     Base.metadata.create_all(bind=engine)
     print("[AI.pollo] Fallback table creation complete.")
 
+# Second fallback: add any missing COLUMNS to existing tables
+# create_all() only creates new tables; it can't ALTER existing ones
+# This list should be maintained as new columns are added to models
+_COLUMN_PATCHES = [
+    ("blend_sessions", "last_generated_json", "TEXT"),
+    ("blend_sessions", "last_generated_mood", "VARCHAR"),
+]
+
+try:
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        for table, column, col_type in _COLUMN_PATCHES:
+            try:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"))
+            except Exception:
+                pass  # Column already exists or table doesn't exist yet
+        conn.commit()
+    print(f"[AI.pollo] Column patches verified ({len(_COLUMN_PATCHES)} checked).")
+except Exception as e:
+    print(f"[AI.pollo] Column patch check skipped: {e}")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
