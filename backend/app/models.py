@@ -75,6 +75,8 @@ class BlendSession(Base):
     host_id = Column(String, ForeignKey("users.id", ondelete="CASCADE"))
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)
+    last_generated_json = Column(Text, nullable=True)  # Full track JSON for broadcasting to joiners
+    last_generated_mood = Column(String, nullable=True)  # e.g. 'chill'
 
     participants = relationship("BlendParticipant", back_populates="session", cascade="all, delete-orphan")
     host = relationship("User", foreign_keys=[host_id])

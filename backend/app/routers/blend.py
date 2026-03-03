@@ -134,7 +134,9 @@ async def get_blend_session(code: str, request: Request, db: Session = Depends(g
         "host_id": session.host_id,
         "is_active": session.is_active,
         "created_at": session.created_at.isoformat() + "Z",
-        "participants": users
+        "participants": users,
+        "last_generated_tracks": json.loads(session.last_generated_json) if session.last_generated_json else None,
+        "last_generated_mood": session.last_generated_mood
     }
 
 @router.post("/{code}/generate")
@@ -184,7 +186,12 @@ async def generate_blend_playlist(code: str, request: Request, db: Session = Dep
         
     # If successful, inject identical historical timeline snapshots into every user's personal Heatmap log
     if tracks:
+        full_tracks_json = json.dumps(tracks)
         track_preview = json.dumps([{"id": t["id"], "name": t["name"], "artists": [a.get("name") for a in t.get("artists", [])], "album_image": t.get("album", {}).get("images", [{}])[0].get("url") if t.get("album", {}).get("images") else None} for t in tracks])
+        
+        # Persist generated tracks into the session so joiners can receive them via polling
+        session.last_generated_json = full_tracks_json
+        session.last_generated_mood = mood
         
         for p in participants:
             entry = models.MoodEntry(

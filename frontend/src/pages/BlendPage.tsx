@@ -5,6 +5,7 @@ import api, { playlistAPI } from '../services/api';
 import { motion, AnimatePresence } from 'framer-motion';
 import TrackCard from '../components/TrackCard';
 import { useAuth } from '../hooks/useAuth';
+import { Copy, Check } from 'lucide-react';
 
 interface Participant {
     id: string;
@@ -43,6 +44,7 @@ export default function BlendPage() {
     const [savedLink, setSavedLink] = useState<string | null>(null);
 
     const pollInterval = useRef<any>(null);
+    const [copied, setCopied] = useState(false);
 
     // Statically inject the available moods aligned with Dashboard's MoodSelector IDs
     const moods = ['happy', 'sad', 'energetic', 'chill', 'angry', 'nostalgic', 'anxious', 'cozy', 'melancholic', 'sensual'];
@@ -61,6 +63,27 @@ export default function BlendPage() {
             try {
                 const res = await api.get(`/api/blend/${roomId}`);
                 setSession(res.data);
+
+                // Sync generated tracks from backend to ALL participants (not just host)
+                if (res.data.last_generated_tracks && res.data.last_generated_tracks.length > 0) {
+                    setGeneratedTracks(prev => {
+                        // Only update if we don't already have tracks (host already has them locally)
+                        // OR if the count differs (host regenerated)
+                        if (prev.length === 0 || JSON.stringify(prev.map((t: any) => t.id)) !== JSON.stringify(res.data.last_generated_tracks.slice(0, 20).map((t: any) => t.id))) {
+                            return res.data.last_generated_tracks.slice(0, 20);
+                        }
+                        return prev;
+                    });
+                    setReserveTracks(prev => {
+                        if (prev.length === 0 && res.data.last_generated_tracks.length > 20) {
+                            return res.data.last_generated_tracks.slice(20);
+                        }
+                        return prev;
+                    });
+                    if (res.data.last_generated_mood) {
+                        setSelectedMood(res.data.last_generated_mood);
+                    }
+                }
 
             } catch (err: any) {
                 if (err.response?.status === 404) {
@@ -251,7 +274,20 @@ export default function BlendPage() {
                         <div className="glass-card p-8 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-6">
                             <div>
                                 <h2 className="text-sm font-bold text-cyan-400 tracking-wider uppercase mb-1">Room Code</h2>
-                                <div className="text-5xl font-mono font-black text-white tracking-[0.2em]">{roomId}</div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-5xl font-mono font-black text-white tracking-[0.2em]">{roomId}</div>
+                                    <button
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(roomId || '');
+                                            setCopied(true);
+                                            setTimeout(() => setCopied(false), 2000);
+                                        }}
+                                        className="p-2.5 rounded-xl hover:bg-white/10 transition-all text-slate-400 hover:text-cyan-400 active:scale-90"
+                                        aria-label="Copy room code"
+                                    >
+                                        {copied ? <Check size={20} className="text-emerald-400" /> : <Copy size={20} />}
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="flex-1 max-w-sm w-full">
