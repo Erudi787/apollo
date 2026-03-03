@@ -12,6 +12,8 @@ An AI-powered mood-based music playlist recommender using the Spotify API. Built
 - `Python`
 - `FastAPI`
 - `Spotipy`
+- `PostgreSQL`
+- `Resend API`
 - `Vercel`
 
 ## 🦄 Features
@@ -25,6 +27,9 @@ Here's what you can do with Apollo:
 - **Social Discovery**: Share your mood playlists and discover what moods or songs are trending among other users.
 - **Zero-Latency Track Replacement Queue**: Instantly remove unwanted track recommendations and automatically hot-swap them utilizing an invisible, pre-fetched Reserve ML Queue without triggering loading spinners or recalcuating API data.
 - **Machine Learning Feedback System**: Train the algorithm on your specific tastes by interacting with the explicit "Thumbs Up / Thumbs Down" buttons. The internal engine permanently tracks your biases—instantly burying disliked songs and massively boosting the algorithm weights of your favorite artists.
+- **Multiplayer Spotify Blend**: Create real-time collaborative rooms with a 5-letter shortcode. AI.pollo ingests the Spotify profiles of everyone in the room and generates a perfect middle-ground playlist tailored to the group's collective music taste.
+- **Advanced Historical Analytics**: Track your emotional resonance over time with interactive, temporal heatmap visualizations tracking the specific days and hours your moods shift.
+- **Contact Integration**: Reach the developer directly from the landing page using a sleek glassmorphic form powered securely by the Resend email API.
 - **Editable Playlist Exports**: Name your collections whatever you desire before exporting them gracefully to your Spotify Library natively.
 - **Dynamic iTunes Fallback Audio**: Due to Spotify strictly deprecating the 30-second `preview_url` property in late 2024, Apollo dynamically executes cross-platform data-fetching against Apple's iTunes Search API to seamlessly supply missing immersive 30-second audio previews.
 - **Beautiful UI**: Enjoy a rich and interactive dashboard using a premium, responsive glassmorphic design and intuitive Framer Motion animations.
@@ -78,9 +83,7 @@ During this project, I've picked up important skills and a better understanding 
 
 ## 💭 Future Roadmap & Improvements
 
-- **Spotify Blend Integration**: Introduce collaborative AI playlists where multiple users' "Top Artists" datasets are ingested into the Curated Intersect Algorithm to generate a perfect acoustic middle-ground for road trips or parties.
-- **Dynamic Track Lyrics**: Integrate the Musixmatch API to fetch and display synchronized lyrics directly inside the `TrackCard` component when a user plays the 30-second audio preview.
-- **Advanced Historical Analytics**: Expand the `/history` dashboard beyond just mood pie-charts to include interactive temporal heatmaps showing exactly what days and times certain moods spike in the user's life.
+- **Dynamic Track Lyrics**: Integrate the Musixmatch API to fetch and display synchronized lyrics directly inside the `TrackCard` component when a user plays the 30-second audio preview. *(Blocked by external API licensing)*
 
 ## 🚦 Running the Project
 
