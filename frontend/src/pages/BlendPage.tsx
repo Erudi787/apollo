@@ -62,6 +62,13 @@ export default function BlendPage() {
         const fetchSession = async () => {
             try {
                 const res = await api.get(`/api/blend/${roomId}`);
+
+                if (res.data.is_active === false) {
+                    setError('The host has ended this session.');
+                    navigate('/blend', { replace: true });
+                    return;
+                }
+
                 setSession(res.data);
 
                 // Sync generated tracks from backend to ALL participants (not just host)
