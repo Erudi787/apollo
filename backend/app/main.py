@@ -30,6 +30,11 @@ try:
     print("[AI.pollo] Successfully ran Alembic migrations on cold boot.")
 except Exception as e:
     print(f"[AI.pollo] Failed to run Alembic migrations: {e}")
+    # Fallback: create any missing tables directly from models
+    # This is additive and safe — it won't modify or destroy existing tables
+    print("[AI.pollo] Running fallback Base.metadata.create_all()...")
+    Base.metadata.create_all(bind=engine)
+    print("[AI.pollo] Fallback table creation complete.")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
