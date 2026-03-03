@@ -82,7 +82,9 @@ export default function BlendPage() {
         setLoading(true);
         setError('');
         try {
-            const res = await api.post('/api/blend/create');
+            const res = await api.post('/api/blend/create', {
+                refresh_token: localStorage.getItem('refresh_token') || ''
+            });
             navigate(`/blend/${res.data.session_id}`);
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to create session');
@@ -97,7 +99,9 @@ export default function BlendPage() {
         setLoading(true);
         setError('');
         try {
-            await api.post(`/api/blend/${joinCode}/join`);
+            await api.post(`/api/blend/${joinCode}/join`, {
+                refresh_token: localStorage.getItem('refresh_token') || ''
+            });
             navigate(`/blend/${joinCode.toUpperCase()}`);
         } catch (err: any) {
             setError(err.response?.data?.detail || 'Failed to join session');

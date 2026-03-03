@@ -14,32 +14,41 @@ router = APIRouter(prefix="/api/blend", tags=["blend"])
 async def create_blend_session(request: Request, db: Session = Depends(get_db)):
     """Creates a new blend session returning a 5-character shortcode."""
     access_token = _get_token_or_error(request)
-    host_id = await _get_current_user_id(access_token, db)
     
-    # Generate 5-char uppercase alphanumeric shortcode
-    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
-    
-    session = models.BlendSession(id=code, host_id=host_id)
-    db.add(session)
-    db.commit()
-    
-    # Try parsing refresh token if provided by frontend JSON
+    # Parse refresh token from body FIRST before consuming the stream
+    refresh_token = ""
     try:
         body = await request.json()
         refresh_token = body.get("refresh_token", "")
     except Exception:
-        refresh_token = ""
-        
-    participant = models.BlendParticipant(
-        session_id=code, 
-        user_id=host_id, 
-        access_token=access_token, 
-        refresh_token=refresh_token
-    )
-    db.add(participant)
-    db.commit()
+        pass
     
-    return {"session_id": code, "host_id": host_id}
+    try:
+        host_id = await _get_current_user_id(access_token, db)
+        
+        # Generate 5-char uppercase alphanumeric shortcode
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        
+        session = models.BlendSession(id=code, host_id=host_id)
+        db.add(session)
+        db.flush()  # Flush to catch constraint errors before adding participant
+        
+        participant = models.BlendParticipant(
+            session_id=code, 
+            user_id=host_id, 
+            access_token=access_token, 
+            refresh_token=refresh_token
+        )
+        db.add(participant)
+        db.commit()
+        
+        return {"session_id": code, "host_id": host_id}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create session: {str(e)}")
 
 
 @router.post("/{code}/join")
@@ -47,42 +56,52 @@ async def join_blend_session(code: str, request: Request, db: Session = Depends(
     """Allows an authenticated user to join a session using its shortcode."""
     access_token = _get_token_or_error(request)
     code = code.upper()
-    user_id = await _get_current_user_id(access_token, db)
     
-    session = db.query(models.BlendSession).filter(
-        models.BlendSession.id == code, 
-        models.BlendSession.is_active == True
-    ).first()
-    
-    if not session:
-        raise HTTPException(status_code=404, detail="Session not found or is closed.")
-        
+    # Parse refresh token from body FIRST before consuming the stream
+    refresh_token = ""
     try:
         body = await request.json()
         refresh_token = body.get("refresh_token", "")
     except Exception:
-        refresh_token = ""
-        
-    # Idempotent join: update token if they already joined
-    existing = db.query(models.BlendParticipant).filter(
-        models.BlendParticipant.session_id == code, 
-        models.BlendParticipant.user_id == user_id
-    ).first()
+        pass
     
-    if existing:
-        existing.access_token = access_token
-        existing.refresh_token = refresh_token
-    else:
-        participant = models.BlendParticipant(
-            session_id=code, 
-            user_id=user_id, 
-            access_token=access_token, 
-            refresh_token=refresh_token
-        )
-        db.add(participant)
+    try:
+        user_id = await _get_current_user_id(access_token, db)
         
-    db.commit()
-    return {"message": "Joined successfully", "session_id": code}
+        session = db.query(models.BlendSession).filter(
+            models.BlendSession.id == code, 
+            models.BlendSession.is_active == True
+        ).first()
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found or is closed.")
+            
+        # Idempotent join: update token if they already joined
+        existing = db.query(models.BlendParticipant).filter(
+            models.BlendParticipant.session_id == code, 
+            models.BlendParticipant.user_id == user_id
+        ).first()
+        
+        if existing:
+            existing.access_token = access_token
+            existing.refresh_token = refresh_token
+        else:
+            participant = models.BlendParticipant(
+                session_id=code, 
+                user_id=user_id, 
+                access_token=access_token, 
+                refresh_token=refresh_token
+            )
+            db.add(participant)
+            
+        db.commit()
+        return {"message": "Joined successfully", "session_id": code}
+    except HTTPException:
+        db.rollback()
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to join session: {str(e)}")
 
 
 @router.get("/{code}")
