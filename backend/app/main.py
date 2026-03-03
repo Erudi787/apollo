@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from app.routers import auth, spotify, history, social, blend
+from app.routers import auth, spotify, history, social, blend, contact
 from app.scheduler import retention_cleanup_loop
 from app.database import engine, Base
 from app import models
@@ -111,6 +111,7 @@ app.include_router(spotify.router)
 app.include_router(social.router)
 app.include_router(history.router)
 app.include_router(blend.router)
+app.include_router(contact.router)
 
 if __name__ == "__main__":
     uvicorn.run(

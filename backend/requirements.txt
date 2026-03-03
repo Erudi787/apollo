@@ -5,3 +5,5 @@ python-dotenv==1.2.1
 SQLAlchemy==2.0.41
 psycopg2-binary==2.9.9
 alembic==1.18.3
+
+resend==0.8.0

@@ -4,7 +4,8 @@ import { useAuth } from '../hooks/useAuth'
 import { useInAppBrowser } from '../hooks/useInAppBrowser'
 import Toast from '../components/Toast'
 import { motion, AnimatePresence, type Variants } from 'framer-motion'
-import { ArrowUp, LogOut, AlertCircle, Github } from 'lucide-react'
+import { ArrowUp, LogOut, AlertCircle, Github, Send, CheckCircle } from 'lucide-react'
+import api from '../services/api'
 
 export default function LoginPage() {
     const { user, login, logout } = useAuth()
@@ -15,6 +16,42 @@ export default function LoginPage() {
     const [scrolled, setScrolled] = useState(false)
     const [showAuthWarning, setShowAuthWarning] = useState(false)
     const buttonRef = useRef<HTMLDivElement>(null)
+
+    // Contact Form State
+    const [contactName, setContactName] = useState('')
+    const [contactEmail, setContactEmail] = useState('')
+    const [contactMessage, setContactMessage] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const [contactStatus, setContactStatus] = useState<'idle' | 'success' | 'error'>('idle')
+    const [contactErrorMsg, setContactErrorMsg] = useState('')
+
+    const handleContactSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!contactName.trim() || !contactEmail.trim() || !contactMessage.trim()) return
+
+        setIsSubmitting(true)
+        setContactStatus('idle')
+        setContactErrorMsg('')
+
+        try {
+            await api.post('/api/contact', {
+                name: contactName,
+                email: contactEmail,
+                message: contactMessage
+            })
+            setContactStatus('success')
+            setContactName('')
+            setContactEmail('')
+            setContactMessage('')
+            // Reset success message after 5 seconds
+            setTimeout(() => setContactStatus('idle'), 5000)
+        } catch (err: any) {
+            setContactStatus('error')
+            setContactErrorMsg(err.response?.data?.detail || 'Failed to send message. Please try again later.')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
 
     // Check URL parameters for Spotify Development Mode whitelisting errors
     useEffect(() => {
@@ -502,6 +539,120 @@ export default function LoginPage() {
                     </div>
                 </motion.div>
 
+            </section>
+
+            {/* Contact Section */}
+            <section className="relative z-10 max-w-4xl mx-auto px-6 py-24 sm:py-32 flex flex-col items-center">
+                <motion.div
+                    variants={featureVariants}
+                    initial="hidden"
+                    whileInView="visible"
+                    viewport={{ once: true, margin: "-100px" }}
+                    className="w-full flex flex-col items-center"
+                >
+                    <div className="inline-block px-3 py-1 true-glass rounded-full text-brand-cyan text-xs font-bold tracking-wide uppercase mb-4">Get In Touch</div>
+                    <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight text-center mb-12">
+                        Contact Developer
+                    </h2>
+
+                    <div className="w-full true-glass-strong border border-brand-cyan/20 rounded-[2rem] p-8 sm:p-12 relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-gradient-to-br from-brand-cyan/10 via-transparent to-transparent opacity-50 mix-blend-overlay" />
+
+                        <form onSubmit={handleContactSubmit} className="relative z-10 space-y-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label htmlFor="name" className="text-sm font-medium text-white/80 ml-1">Name</label>
+                                    <input
+                                        id="name"
+                                        type="text"
+                                        required
+                                        disabled={isSubmitting}
+                                        value={contactName}
+                                        onChange={(e) => setContactName(e.target.value)}
+                                        className="w-full bg-slate-900/50 border border-slate-700/50 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-brand-cyan/50 focus:ring-1 focus:ring-brand-cyan/50 transition-all disabled:opacity-50"
+                                        placeholder="John Doe"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="email" className="text-sm font-medium text-white/80 ml-1">Email</label>
+                                    <input
+                                        id="email"
+                                        type="email"
+                                        required
+                                        disabled={isSubmitting}
+                                        value={contactEmail}
+                                        onChange={(e) => setContactEmail(e.target.value)}
+                                        className="w-full bg-slate-900/50 border border-slate-700/50 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-brand-cyan/50 focus:ring-1 focus:ring-brand-cyan/50 transition-all disabled:opacity-50"
+                                        placeholder="john@example.com"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label htmlFor="message" className="text-sm font-medium text-white/80 ml-1">Message</label>
+                                <textarea
+                                    id="message"
+                                    required
+                                    rows={5}
+                                    disabled={isSubmitting}
+                                    value={contactMessage}
+                                    onChange={(e) => setContactMessage(e.target.value)}
+                                    className="w-full bg-slate-900/50 border border-slate-700/50 text-white py-3 px-4 rounded-xl focus:outline-none focus:border-brand-cyan/50 focus:ring-1 focus:ring-brand-cyan/50 transition-all resize-none disabled:opacity-50"
+                                    placeholder="Need to be whitelisted for the Spotify API? Drop me a mail."
+                                />
+                            </div>
+
+                            <AnimatePresence mode="wait">
+                                {contactStatus === 'error' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-red-400 text-sm font-medium flex items-center gap-2 bg-red-500/10 p-3 rounded-lg border border-red-500/20"
+                                    >
+                                        <AlertCircle size={16} />
+                                        {contactErrorMsg}
+                                    </motion.div>
+                                )}
+
+                                {contactStatus === 'success' && (
+                                    <motion.div
+                                        initial={{ opacity: 0, height: 0 }}
+                                        animate={{ opacity: 1, height: 'auto' }}
+                                        exit={{ opacity: 0, height: 0 }}
+                                        className="text-emerald-400 text-sm font-medium flex items-center gap-2 bg-emerald-500/10 p-3 rounded-lg border border-emerald-500/20"
+                                    >
+                                        <CheckCircle size={16} />
+                                        Message sent! I'll get back to you soon.
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            <button
+                                type="submit"
+                                disabled={isSubmitting || contactStatus === 'success'}
+                                className="w-full sm:w-auto px-8 py-3.5 bg-brand-cyan text-slate-900 font-bold rounded-xl hover:bg-white hover:shadow-lg hover:shadow-brand-cyan/20 transition-all active:scale-95 disabled:opacity-70 disabled:active:scale-100 flex items-center justify-center gap-2 group"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-slate-900 border-t-transparent rounded-full animate-spin"></div>
+                                        Sending...
+                                    </>
+                                ) : contactStatus === 'success' ? (
+                                    <>
+                                        <CheckCircle size={18} />
+                                        Message Sent
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send size={18} className="transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
+                                        Send Message
+                                    </>
+                                )}
+                            </button>
+                        </form>
+                    </div>
+                </motion.div>
             </section>
 
             {/* Footer */}
