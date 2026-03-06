@@ -401,7 +401,7 @@ export default function LoginPage() {
                 >
                     <div className="flex-1 space-y-6 lg:pl-8">
                         <div className="inline-block px-3 py-1 true-glass rounded-full text-brand-cyan text-xs font-bold tracking-wide uppercase mb-2">The Experience</div>
-                        <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
+                        <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent pb-2 bg-gradient-to-r from-white to-white/60 tracking-tight">
                             Discover & Create
                         </h2>
                         <p className="text-lg sm:text-xl text-white/60 leading-relaxed font-light">
@@ -425,7 +425,7 @@ export default function LoginPage() {
                     <div className="flex-1 space-y-8 lg:pr-8">
                         <div className="space-y-4">
                             <div className="inline-block px-3 py-1 true-glass rounded-full text-brand-purple text-xs font-bold tracking-wide uppercase mb-2">The Process</div>
-                            <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-l from-white to-white/60 tracking-tight">
+                            <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent pb-2 bg-gradient-to-l from-white to-white/60 tracking-tight">
                                 How It Works
                             </h2>
                         </div>
@@ -470,7 +470,7 @@ export default function LoginPage() {
                 >
                     <div className="flex-1 space-y-6 lg:pl-8">
                         <div className="inline-block px-3 py-1 true-glass rounded-full text-indigo-400 text-xs font-bold tracking-wide uppercase mb-2">The Engine</div>
-                        <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight">
+                        <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent pb-2 bg-gradient-to-r from-white to-white/60 tracking-tight">
                             Behind the Magic
                         </h2>
                         <p className="text-lg sm:text-xl text-white/60 leading-relaxed font-light mb-8">
@@ -514,7 +514,7 @@ export default function LoginPage() {
                             </svg>
                         </div>
 
-                        <h2 className="font-display text-3xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-t from-white to-white/60 tracking-tight relative z-10">
+                        <h2 className="font-display text-3xl sm:text-4xl font-bold bg-clip-text text-transparent pb-2 bg-gradient-to-t from-white to-white/60 tracking-tight relative z-10">
                             Spotify Dev-Mode Quotas
                         </h2>
 
@@ -551,7 +551,7 @@ export default function LoginPage() {
                     className="w-full flex flex-col items-center"
                 >
                     <div className="inline-block px-3 py-1 true-glass rounded-full text-brand-cyan text-xs font-bold tracking-wide uppercase mb-4">Get In Touch</div>
-                    <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/60 tracking-tight text-center mb-12">
+                    <h2 className="font-display text-4xl sm:text-5xl font-bold bg-clip-text text-transparent pb-2 bg-gradient-to-r from-white to-white/60 tracking-tight text-center mb-12">
                         Contact Developer
                     </h2>
 

@@ -80,7 +80,7 @@ def _verify_signed_state(state: str) -> bool:
 async def _fetch_spotify_profile(access_token: str) -> dict | None:
     """Fetch the current user's Spotify profile. Returns None on failure."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(
                 "https://api.spotify.com/v1/me",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -149,7 +149,7 @@ async def callback(
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(spotify_token_url, headers=headers, data=data)
 
     if resp.status_code != 200:
@@ -250,7 +250,7 @@ async def _do_refresh(refresh_token: str) -> str | None:
     }
 
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.post(spotify_token_url, headers=headers, data=data)
             resp.raise_for_status()
             return resp.json().get("access_token")
