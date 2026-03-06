@@ -9,15 +9,17 @@
     content="AI.pollo is an AI-powered mood-based music playlist recommender. Discover beautifully curated tracks that match exactly how you feel on Spotify." />
   <meta name="keywords" content="AI playlist maker, Spotify recommender, mood music, music discovery, AI Spotify">
   <meta name="author" content="Apollo">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#020617">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://apollo-music.vercel.app/" />
 
   <!-- Open Graph / Facebook / iMessage -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="AI.pollo 𓏢 — The music you feel.">
   <meta property="og:description"
     content="AI-powered mood-based music playlist recommender. Discover hand-picked tracks that match exactly how you feel.">
-  <!-- <meta property="og:url" content="https://your-domain.vercel.app/"> -->
-  <!-- <meta property="og:image" content="https://your-domain.vercel.app/public/og-preview.png"> -->
+  <meta property="og:url" content="https://apollo-music.vercel.app/">
+  <meta property="og:image" content="https://apollo-music.vercel.app/public/og-preview.png">
   <meta property="og:site_name" content="AI.pollo">
 
   <!-- Twitter -->
@@ -25,7 +27,7 @@
   <meta name="twitter:title" content="AI.pollo 𓏢 — The music you feel.">
   <meta name="twitter:description"
     content="AI-powered mood-based music playlist recommender. Discover hand-picked tracks that match exactly how you feel.">
-  <!-- <meta name="twitter:image" content="https://your-domain.vercel.app/public/og-preview.png"> -->
+  <meta name="twitter:image" content="https://apollo-music.vercel.app/public/og-preview.png">
 
   <!-- Icons -->
   <link rel="icon" type="image/x-icon" href="/public/icon.ico" />
@@ -58,7 +60,55 @@
 </head>
 
 <body>
-  <div id="root"></div>
+  <div id="root">
+    <!-- Pre-hydration SEO Content for Search Engine Crawlers (DuckDuckGo, Bing, Baidu) -->
+    <div style="opacity: 0; position: absolute; z-index: -1; pointer-events: none;">
+      <header>
+        <h1>AI.pollo — The music you feel.</h1>
+        <p>AI.pollo is an AI-powered mood-based music playlist recommender. Discover beautifully curated tracks that
+          match exactly how you feel on Spotify.</p>
+      </header>
+      <main>
+        <section>
+          <h2>Discover & Create</h2>
+          <p>AI.pollo isn't just an infinite radio station. It's an intelligent music engine designed for absolute
+            discovery. Whether you're feeling energetic, nostalgic, or searching for a late-night sensual vibe, AI.pollo
+            unearths hidden gems and allows you to instantly compile them into permanent, bespoke Spotify playlists with
+            a single click.</p>
+        </section>
+        <section>
+          <h2>How It Works</h2>
+          <ul>
+            <li>
+              <h3>Connect Your Spotify</h3>
+              <p>We safely analyze your top tracks, listening history, and the beautiful indie artists you follow to
+                understand your unique taste profile.</p>
+            </li>
+            <li>
+              <h3>Set Your Mood</h3>
+              <p>Type exactly how you feel ("late night drive", "villain era", "falling in love") or select one of our
+                curated emotional presets.</p>
+            </li>
+            <li>
+              <h3>Curate & Save to Spotify</h3>
+              <p>Swipe through your custom recommendations, curate your favorites in the interactive player, and
+                instantly export the entire collection directly to your Spotify library as a brand-new playlist.</p>
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h2>Behind the Magic</h2>
+          <p>Built entirely with modern, high-performance web technologies: React 18, TypeScript, Tailwind CSS, Framer
+            Motion, FastAPI, Python 3, Spotify API, OAuth 2.0, and PostgreSQL.</p>
+        </section>
+        <section>
+          <h2>Multiplayer Spotify Blend</h2>
+          <p>Create real-time collaborative rooms. AI.pollo ingests the Spotify profiles of everyone in the room and
+            generates a perfect middle-ground playlist tailored to the group's collective music taste.</p>
+        </section>
+      </main>
+    </div>
+  </div>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
